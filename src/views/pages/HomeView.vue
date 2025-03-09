@@ -1,3 +1,18 @@
+<!--<script setup lang="ts">-->
+<!--import { useCounterStore } from '@/stores/counter'-->
+
+<!--const counterStore = useCounterStore()-->
+<!--</script>-->
+
+<!--<template>-->
+<!--  <p>This is the homepage</p>-->
+<!--  <p>Value: {{ counterStore.count }}</p>-->
+<!--  <p>Double Value: {{ counterStore.doubleCount }}</p>-->
+<!--  <a-button type="primary" @click="counterStore.increment">Value +1</a-button>-->
+<!--</template>-->
+
+<style scoped></style>
+
 <script setup lang="ts">
 import { useAccountStore } from '@/stores/account'
 

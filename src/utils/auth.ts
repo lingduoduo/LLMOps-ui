@@ -1,5 +1,5 @@
-// 检测是否登录
+// Check if the user is logged in
 export const isLogin = () => {
-  // todo:授权认证逻辑待实现
+  // TODO: Authentication logic to be implemented
   return true
 }

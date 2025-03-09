@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@arco-design/web-react": "^2.65.0",
-    "pinia": "^2.1.7",
+    "pinia": "^3.0.1",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"
   },
