@@ -45,9 +45,9 @@ const router = createRouter({
   ],
 })
 
-// todo:路由守卫逻辑还未实现
+// TODO: Route guard logic is not yet implemented
 router.beforeEach(async (to, from) => {
-  if (!isLogin() && to.name != 'auth-login') {
+  if (!isLogin() && to.name !== 'auth-login') {
     return { path: '/auth/login' }
   }
 })

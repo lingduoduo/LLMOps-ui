@@ -5,9 +5,9 @@ const counterStore = useCounterStore()
 </script>
 
 <template>
-  <p>这里是AI应用列表</p>
-  <p>数值是:{{ counterStore.count }}</p>
-  <router-link to="/home">返回主页</router-link>
+  <p>This is the AI application list</p>
+  <p>The value is: {{ counterStore.count }}</p>
+  <router-link to="/home">Return to Home</router-link>
 </template>
 
 <style scoped></style>

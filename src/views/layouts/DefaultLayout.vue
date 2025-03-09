@@ -1,7 +1,7 @@
 <script setup lang="ts"></script>
 
 <template>
-  <nav>侧边栏</nav>
+  <nav>Sidebar</nav>
   <router-view />
 </template>
 
