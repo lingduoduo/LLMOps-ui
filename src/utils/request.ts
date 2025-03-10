@@ -1,41 +1,41 @@
 import { apiPrefix } from '@/config'
 
-// 1.超时时间为100s
+// 1. Timeout duration set to 100 seconds
 const TIME_OUT = 100000
 
-// 2.基础的配置
+// 2. Basic fetch configuration
 const baseFetchOptions = {
   method: 'GET',
-  mode: 'cors',
-  credentials: 'include',
+  mode: 'cors', // Enables Cross-Origin Resource Sharing (CORS)
+  credentials: 'include', // Ensures cookies are sent with requests
   headers: new Headers({
     'Content-Type': 'application/json',
   }),
-  redirect: 'follow',
+  redirect: 'follow', // Follows HTTP redirects automatically
 }
 
-// 3.fetch参数类型
+// 3. Type definition for fetch options
 type FetchOptionType = Omit<RequestInit, 'body'> & {
-  params?: Record<string, any>
-  body?: BodyInit | Record<string, any> | null
+  params?: Record<string, any> // Optional URL parameters
+  body?: BodyInit | Record<string, any> | null // Request body
 }
 
-// 4.封装基础的fetch请求
+// 4. Base fetch request wrapper
 const baseFetch = <T>(url: string, fetchOptions: FetchOptionType): Promise<T> => {
-  // 5.将所有的配置信息合并起来
+  // 5. Combine all configuration options
   const options: typeof baseFetchOptions & FetchOptionType = Object.assign(
     {},
     baseFetchOptions,
     fetchOptions,
   )
 
-  // 6.组装url
+  // 6. Construct the URL with API prefix
   let urlWithPrefix = `${apiPrefix}${url.startsWith('/') ? url : `/${url}`}`
 
-  // 7.解构出对应的请求方法、params、body参数
+  // 7. Extract method, params, and body from options
   const { method, params, body } = options
 
-  // 8.如果请求是GET方法，并且传递了params参数
+  // 8. If the method is GET and params are provided
   if (method === 'GET' && params) {
     const paramsArray: string[] = []
     Object.keys(params).forEach((key) => {
@@ -50,20 +50,20 @@ const baseFetch = <T>(url: string, fetchOptions: FetchOptionType): Promise<T> =>
     delete options.params
   }
 
-  // 9.处理post传递的数据
+  // 9. Handle POST request body
   if (body) {
     options.body = JSON.stringify(body)
   }
 
-  // 10.同时发起两个Promise(或者是说两个操作，看谁先返回，就先结束)
+  // 10. Send two Promises in parallel (whichever returns first will resolve the final result)
   return Promise.race([
-    // 11.使用定时器来检测是否超时
+    // 11. Timeout handler
     new Promise((resolve, reject) => {
       setTimeout(() => {
-        reject('接口已超时')
+        reject('Request timed out')
       }, TIME_OUT)
     }),
-    // 12.发起一个正常请求
+    // 12. Actual fetch request
     new Promise((resolve, reject) => {
       globalThis
         .fetch(urlWithPrefix, options as RequestInit)
@@ -77,6 +77,7 @@ const baseFetch = <T>(url: string, fetchOptions: FetchOptionType): Promise<T> =>
   ]) as Promise<T>
 }
 
+// Utility functions for easier usage
 export const request = <T>(url: string, options = {}) => {
   return baseFetch<T>(url, options)
 }
