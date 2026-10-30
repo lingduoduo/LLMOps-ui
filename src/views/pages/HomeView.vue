@@ -1,35 +1,11 @@
-<!--<script setup lang="ts">-->
-<!--import { useCounterStore } from '@/stores/counter'-->
-
-<!--const counterStore = useCounterStore()-->
-<!--</script>-->
-
-<!--<template>-->
-<!--  <p>This is the homepage</p>-->
-<!--  <p>Value: {{ counterStore.count }}</p>-->
-<!--  <p>Double Value: {{ counterStore.doubleCount }}</p>-->
-<!--  <a-button type="primary" @click="counterStore.increment">Value +1</a-button>-->
-<!--</template>-->
-
-<style scoped></style>
-
-<script setup lang="ts">
-import { useAccountStore } from '@/stores/account'
-
-const accountStore = useAccountStore()
-
-function updateName() {
-  accountStore.update({ name: 'Little Class' })
-}
-</script>
-
 <template>
-  <p>This is the homepage</p>
-  <p>Currently logged-in account: {{ accountStore.account.name }}</p>
-  <p>Currently logged-in email: {{ accountStore.account.email }}</p>
-  <a-button type="primary" @click="updateName">Update Name</a-button>
-  <a-button @click="accountStore.clear">Reset</a-button>
-  <router-link to="/space/apps">Go to Application List</router-link>
+  <main class="max-w-2xl mx-auto px-6 py-12">
+    <h1 class="text-3xl font-semibold mb-4">LLMOps application preview</h1>
+    <p class="text-gray-600 mb-6">
+      Select an application from your account and test its responses in a debug conversation.
+    </p>
+    <router-link to="/space/apps" class="inline-block rounded bg-blue-700 text-white px-4 py-2">
+      Open an application
+    </router-link>
+  </main>
 </template>
-
-<style scoped></style>

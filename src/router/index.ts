@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isLogin } from '@/utils/auth'
+import { isLogin, SESSION_CLEARED_EVENT } from '@/utils/auth'
 import DefaultLayout from '@/views/layouts/DefaultLayout.vue'
 import BlankLayout from '@/views/layouts/BlankLayout.vue'
 
@@ -45,10 +45,20 @@ const router = createRouter({
   ],
 })
 
-// TODO: Route guard logic is not yet implemented
-router.beforeEach(async (to, from) => {
-  if (!isLogin() && to.name !== 'auth-login') {
-    return { path: '/auth/login' }
+router.beforeEach((to) => {
+  if (to.name !== 'auth-login' && !isLogin()) {
+    return { name: 'auth-login', query: { redirect: to.fullPath } }
+  }
+  if (to.name === 'auth-login' && isLogin()) return { name: 'space-apps-list' }
+})
+
+window.addEventListener(SESSION_CLEARED_EVENT, () => {
+  if (router.currentRoute.value.name !== 'auth-login') {
+    void router.replace({
+      name: 'auth-login',
+      query: { redirect: router.currentRoute.value.fullPath },
+    })
   }
 })
+
 export default router
