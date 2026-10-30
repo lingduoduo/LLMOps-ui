@@ -1,5 +1,8 @@
 // API request prefix
-export const apiPrefix: string = 'http://localhost:5000'
+export const apiPrefix: string = (import.meta.env.VITE_API_BASE_URL?.trim() || '/api').replace(
+  /\/+$/,
+  '',
+)
 
 // Business logic response codes
 export const httpCode = {

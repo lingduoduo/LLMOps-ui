@@ -1,25 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-// 初始值
-const initAccount = {
-  name: 'Ling',
-  email: 'linghypshen@gmail.com',
-  avatar: '',
-}
+import type { Account } from '@/models/account'
+import type { BaseResponse } from '@/models/base'
+import { get } from '@/utils/request'
+import { getAccessToken } from '@/utils/auth'
 
 export const useAccountStore = defineStore('account', () => {
-  // 1.Define Data
-  const account = ref({ ...initAccount })
-
-  // 2.Fucntions/Actions
-  function update(params: any) {
-    Object.assign(account.value, params)
+  const account = ref<Account | null>(null)
+  const load = async () => {
+    const accessToken = getAccessToken()
+    const response = await get<BaseResponse<Account>>('/account')
+    if (!accessToken || getAccessToken() !== accessToken) return
+    if (
+      !response.data ||
+      typeof response.data.id !== 'string' ||
+      typeof response.data.name !== 'string'
+    ) {
+      throw new Error('The server returned an invalid account response.')
+    }
+    account.value = response.data
   }
-
-  function clear() {
-    account.value = { ...initAccount }
+  const clear = () => {
+    account.value = null
   }
-
-  return { account, update, clear }
+  return { account, load, clear }
 })
