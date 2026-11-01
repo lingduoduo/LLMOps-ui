@@ -18,8 +18,9 @@ async function render(path = '/auth/login') {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/auth/login', component: LoginView },
+      { path: '/auth/login', component: LoginView, meta: { public: true } },
       { path: '/home', component: { template: '<div />' } },
+      { path: '/space/apps/:app_id', component: { template: '<div />' } },
       { path: '/space/apps', name: 'space-apps-list', component: { template: '<div />' } },
     ],
   })
@@ -111,5 +112,18 @@ describe('password login', () => {
     expect(isLogin()).toBe(false)
     expect(wrapper.get('[role="alert"]').text()).toContain('Invalid credentials')
     expect(router.currentRoute.value.path).toBe('/auth/login')
+  })
+
+  it.each([
+    ['/space/apps/abc?tab=debug', '/space/apps/abc?tab=debug'],
+    ['/unknown', '/space/apps'],
+    ['/auth/login', '/space/apps'],
+    ['//evil.example', '/space/apps'],
+    ['https://evil.example', '/space/apps'],
+  ])('after login, redirect=%s lands on %s', async (redirect, expected) => {
+    vi.stubGlobal('fetch', vi.fn())
+    const { wrapper, router } = await render(`/auth/login?redirect=${encodeURIComponent(redirect)}`)
+    await submit(wrapper, 'admin', 'admin')
+    expect(router.currentRoute.value.fullPath).toBe(expected)
   })
 })

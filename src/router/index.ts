@@ -3,6 +3,13 @@ import { isLogin, SESSION_CLEARED_EVENT } from '@/utils/auth'
 import DefaultLayout from '@/views/layouts/DefaultLayout.vue'
 import BlankLayout from '@/views/layouts/BlankLayout.vue'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    // Reachable without signing in.
+    public?: boolean
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -12,12 +19,17 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: 'home',
+          redirect: { name: 'pages-home' },
         },
         {
           path: 'home',
           name: 'pages-home',
           component: () => import('@/views/pages/HomeView.vue'),
+        },
+        {
+          path: 'about',
+          name: 'pages-about',
+          component: () => import('@/views/AboutView.vue'),
         },
         {
           path: 'space/apps',
@@ -39,6 +51,13 @@ const router = createRouter({
           path: 'auth/login',
           name: 'auth-login',
           component: () => import('@/views/auth/LoginView.vue'),
+          meta: { public: true },
+        },
+        {
+          path: ':pathMatch(.*)+',
+          name: 'not-found',
+          component: () => import('@/views/errors/NotFoundView.vue'),
+          meta: { public: true },
         },
       ],
     },
@@ -46,7 +65,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.name !== 'auth-login' && !isLogin()) {
+  if (!to.meta.public && !isLogin()) {
     return { name: 'auth-login', query: { redirect: to.fullPath } }
   }
   if (to.name === 'auth-login' && isLogin()) return { name: 'space-apps-list' }
