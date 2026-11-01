@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isLogin, SESSION_CLEARED_EVENT } from '@/utils/auth'
+import { useAccountStore } from '@/stores/account'
 import DefaultLayout from '@/views/layouts/DefaultLayout.vue'
 import BlankLayout from '@/views/layouts/BlankLayout.vue'
 
@@ -64,15 +65,33 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
-  if (!to.meta.public && !isLogin()) {
-    return { name: 'auth-login', query: { redirect: to.fullPath } }
+// True while the guard confirms the session with the backend; the guard redirects itself then.
+let verifyingSession = false
+
+router.beforeEach(async (to, _from) => {
+  if (to.meta.public) {
+    if (to.name === 'auth-login' && isLogin()) return { name: 'space-apps-list' }
+    return
   }
-  if (to.name === 'auth-login' && isLogin()) return { name: 'space-apps-list' }
+  const toLogin = { name: 'auth-login', query: { redirect: to.fullPath } }
+  if (!isLogin()) return toLogin
+  // A stored token can be revoked server-side, so confirm it once by loading the account.
+  const accountStore = useAccountStore()
+  if (accountStore.account) return
+  verifyingSession = true
+  try {
+    await accountStore.load()
+  } catch {
+    // A 401 clears the credential; other failures (e.g. backend down) keep the session and
+    // let the layout show the error.
+    if (!isLogin()) return toLogin
+  } finally {
+    verifyingSession = false
+  }
 })
 
 window.addEventListener(SESSION_CLEARED_EVENT, () => {
-  if (router.currentRoute.value.name !== 'auth-login') {
+  if (!verifyingSession && router.currentRoute.value.name !== 'auth-login') {
     void router.replace({
       name: 'auth-login',
       query: { redirect: router.currentRoute.value.fullPath },
