@@ -64,7 +64,7 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to, _from) => {
   if (!to.meta.public && !isLogin()) {
     return { name: 'auth-login', query: { redirect: to.fullPath } }
   }
