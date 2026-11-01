@@ -1,7 +1,10 @@
-import { apiPrefix } from '@/config'
+import { apiPrefix, httpCode } from '@/config'
 import { clearCredential, getAccessToken } from '@/utils/auth'
 
 const TIME_OUT = 100000
+
+// Defaults for every request; per-request options override them.
+const BASE_FETCH_OPTIONS: RequestInit = { credentials: 'include' }
 
 type FetchOptionType = Omit<RequestInit, 'body'> & {
   auth?: boolean
@@ -20,35 +23,40 @@ export class RequestError extends Error {
   }
 }
 
+// Prefixes the API base and appends params before any fragment, skipping empty values.
+const buildUrl = (url: string, params: FetchOptionType['params']) => {
+  const requestUrl = `${apiPrefix}${url.startsWith('/') ? url : `/${url}`}`
+  const search = new URLSearchParams()
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) search.append(key, String(value))
+  })
+  const query = search.toString()
+  if (!query) return requestUrl
+  const [path, fragment] = requestUrl.split('#', 2)
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}${query}${fragment === undefined ? '' : `#${fragment}`}`
+}
+
+// Plain objects are sent as JSON; FormData, Blob, strings, etc. pass through untouched.
+const encodeBody = (body: FetchOptionType['body'], headers: Headers) => {
+  if (!body || typeof body !== 'object') return body
+  const prototype = Object.getPrototypeOf(body)
+  if (prototype !== Object.prototype && prototype !== null) return body as BodyInit
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  return JSON.stringify(body)
+}
+
 const fetchResponse = async <T>(
   url: string,
   options: FetchOptionType,
   consume: (response: Response) => Promise<T>,
 ): Promise<T> => {
   const { params, body, signal, auth = true, ...fetchOptions } = options
-  let requestUrl = `${apiPrefix}${url.startsWith('/') ? url : `/${url}`}`
-  if (params) {
-    const search = new URLSearchParams()
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) search.append(key, String(value))
-    })
-    const [path, fragment] = requestUrl.split('#', 2)
-    const query = search.toString()
-    requestUrl = `${path}${query ? `${path.includes('?') ? '&' : '?'}${query}` : ''}${fragment === undefined ? '' : `#${fragment}`}`
-  }
-
+  const requestUrl = buildUrl(url, params)
   const headers = new Headers(fetchOptions.headers)
   const accessToken = auth ? getAccessToken() : null
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
-  let requestBody = body as BodyInit | null | undefined
-  if (
-    body &&
-    typeof body === 'object' &&
-    (Object.getPrototypeOf(body) === Object.prototype || Object.getPrototypeOf(body) === null)
-  ) {
-    requestBody = JSON.stringify(body)
-    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
-  }
+  const requestBody = encodeBody(body, headers)
 
   const controller = new AbortController()
   const abort = () => controller.abort(signal?.reason)
@@ -60,7 +68,7 @@ const fetchResponse = async <T>(
 
   try {
     const response = await globalThis.fetch(requestUrl, {
-      credentials: 'include',
+      ...BASE_FETCH_OPTIONS,
       ...fetchOptions,
       headers,
       body: requestBody,
@@ -86,12 +94,12 @@ const fetchResponse = async <T>(
       throw new RequestError(
         message,
         response.status,
-        response.status === 401 ? 'unauthorized' : undefined,
+        response.status === 401 ? httpCode.unauthorized : undefined,
       )
     }
     return await consume(response)
   } catch (cause) {
-    if (cause instanceof RequestError && cause.code === 'unauthorized' && auth) {
+    if (cause instanceof RequestError && cause.code === httpCode.unauthorized && auth) {
       const currentToken = getAccessToken()
       // A late failure must not invalidate a newly established session.
       if (!currentToken || currentToken === accessToken) clearCredential()
@@ -112,7 +120,7 @@ const readJson = async <T>(response: Response): Promise<T> => {
   } catch {
     throw new RequestError('The server returned an invalid JSON response.', response.status)
   }
-  if (data && typeof data === 'object' && 'code' in data && data.code !== 'success') {
+  if (data && typeof data === 'object' && 'code' in data && data.code !== httpCode.success) {
     const message =
       'message' in data && typeof data.message === 'string' && data.message
         ? data.message
