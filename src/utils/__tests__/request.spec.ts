@@ -63,9 +63,8 @@ describe('request', () => {
       ),
     )
     const pending = get('/test', { signal: controller.signal })
-    const result = expect(pending).rejects.toThrow('Cancelled')
     controller.abort(new Error('Cancelled'))
-    await result
+    await expect(pending).rejects.toThrow('Cancelled')
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -96,9 +95,10 @@ describe('request', () => {
         })
       }),
     )
-    const result = expect(get('/test')).rejects.toThrow(/timed out/i)
-    await vi.advanceTimersByTimeAsync(100000)
-    await result
+    await Promise.all([
+      expect(get('/test')).rejects.toThrow(/timed out/i),
+      vi.advanceTimersByTimeAsync(100000),
+    ])
     expect(signal?.aborted).toBe(true)
     expect(vi.getTimerCount()).toBe(0)
   })
