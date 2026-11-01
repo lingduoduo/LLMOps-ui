@@ -1,9 +1,30 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
-import { clearCredential, setCredential } from '@/utils/auth'
+import { createPinia, setActivePinia } from 'pinia'
+import { clearCredential, isLogin, setCredential } from '@/utils/auth'
 import router from '../index'
 
-afterEach(() => sessionStorage.clear())
+const accountResponse = () =>
+  new Response(
+    JSON.stringify({
+      code: 'success',
+      message: '',
+      data: { id: 'account-id', name: 'Test', email: 'user@example.com', avatar: '' },
+    }),
+  )
+let fetch: ReturnType<typeof vi.fn<typeof globalThis.fetch>>
+
+beforeEach(async () => {
+  setActivePinia(createPinia())
+  fetch = vi.fn<typeof globalThis.fetch>(async () => accountResponse())
+  vi.stubGlobal('fetch', fetch)
+  // Start each test from a public (not-found) page so earlier tests don't leak their location.
+  await router.push('/test-start')
+})
+afterEach(() => {
+  sessionStorage.clear()
+  vi.unstubAllGlobals()
+})
 
 const signIn = () =>
   setCredential({ access_token: 'test-token', expire_at: Math.floor(Date.now() / 1000) + 3600 })
@@ -55,6 +76,38 @@ describe('protected navigation', () => {
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('auth-login')
     expect(router.currentRoute.value.query.redirect).toBe('/space/apps/example')
+  })
+})
+
+describe('server session check', () => {
+  it('confirms the session with the backend once, then uses the loaded account', async () => {
+    signIn()
+    await router.push('/space/apps')
+    await router.push('/home')
+    expect(router.currentRoute.value.name).toBe('pages-home')
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(String(fetch.mock.calls[0]?.[0])).toBe('/api/account')
+  })
+
+  it('sends users with a token the backend rejects to login, keeping their destination', async () => {
+    fetch.mockResolvedValue(
+      new Response(JSON.stringify({ code: 'unauthorized', message: 'Expired', data: {} }), {
+        status: 401,
+      }),
+    )
+    signIn()
+    await router.push('/space/apps/example')
+    expect(isLogin()).toBe(false)
+    expect(router.currentRoute.value.name).toBe('auth-login')
+    expect(router.currentRoute.value.query.redirect).toBe('/space/apps/example')
+  })
+
+  it('keeps the session when the backend is unavailable', async () => {
+    fetch.mockResolvedValue(new Response('Bad gateway', { status: 502 }))
+    signIn()
+    await router.push('/space/apps')
+    expect(isLogin()).toBe(true)
+    expect(router.currentRoute.value.name).toBe('space-apps-list')
   })
 })
 
