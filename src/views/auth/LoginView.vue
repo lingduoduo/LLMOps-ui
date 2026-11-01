@@ -25,10 +25,10 @@ const login = async () => {
     password.value = ''
     const redirect = route.query.redirect
     // Only return to protected application routes in this SPA.
+    const target =
+      typeof redirect === 'string' && redirect.startsWith('/') ? router.resolve(redirect) : null
     const destination =
-      typeof redirect === 'string' && /^\/(?:home|space\/apps)(?:[/?#]|$)/.test(redirect)
-        ? redirect
-        : '/space/apps'
+      target && target.matched.length && !target.meta.public ? target.fullPath : '/space/apps'
     await router.replace(destination)
   } catch (cause) {
     clearCredential()

@@ -29,7 +29,6 @@ it('renders Arco components used by templates', async () => {
   document.body.innerHTML = '<div id="app"></div>'
   app = (await import('@/main')).default
   const { default: router } = await import('@/router')
-  router.addRoute({ path: '/about', component: () => import('@/views/AboutView.vue') })
   sessionStorage.setItem(
     'llmops.credential',
     JSON.stringify({ access_token: 't', expire_at: Math.floor(Date.now() / 1000) + 3600 }),
