@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
-import { createPinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import LoginView from '../LoginView.vue'
+import { useAccountStore } from '@/stores/account'
+import { DEV_ACCOUNT } from '@/services/auth'
+import { isLogin } from '@/utils/auth'
 
 let wrapper: VueWrapper | undefined
 afterEach(() => {
@@ -11,22 +14,25 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-async function render() {
+async function render(path = '/auth/login') {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/auth/login', component: LoginView },
+      { path: '/home', component: { template: '<div />' } },
       { path: '/space/apps', name: 'space-apps-list', component: { template: '<div />' } },
     ],
   })
-  await router.push('/auth/login')
-  wrapper = mount(LoginView, { global: { plugins: [router, createPinia()] } })
+  await router.push(path)
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  wrapper = mount(LoginView, { global: { plugins: [router, pinia] } })
   return { wrapper, router }
 }
 
-async function submit(wrapper: VueWrapper) {
-  await wrapper.get('input[type="email"]').setValue('user@example.com')
-  await wrapper.get('input[type="password"]').setValue('password123')
+async function submit(wrapper: VueWrapper, email = 'user@example.com', password = 'password123') {
+  await wrapper.get('#email').setValue(email)
+  await wrapper.get('input[type="password"]').setValue(password)
   await wrapper.get('form').trigger('submit')
   await flushPromises()
 }
@@ -74,6 +80,33 @@ describe('password login', () => {
     )
     const { wrapper, router } = await render()
     await submit(wrapper)
+    expect(wrapper.get('[role="alert"]').text()).toContain('Invalid credentials')
+    expect(router.currentRoute.value.path).toBe('/auth/login')
+  })
+
+  it('signs in as the dev admin without contacting the backend', async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    const { wrapper, router } = await render('/auth/login?redirect=/home')
+    expect(wrapper.text()).toContain('Dev mode')
+    await submit(wrapper, 'admin', 'admin')
+    expect(fetch).not.toHaveBeenCalled()
+    expect(isLogin()).toBe(true)
+    expect(useAccountStore().account).toEqual(DEV_ACCOUNT)
+    expect(router.currentRoute.value.path).toBe('/home')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('sends a wrong dev admin password to the backend instead of signing in', async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ code: 'fail', message: 'Invalid credentials', data: {} })),
+    )
+    vi.stubGlobal('fetch', fetch)
+    const { wrapper, router } = await render()
+    await submit(wrapper, 'admin', 'wrong')
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(isLogin()).toBe(false)
     expect(wrapper.get('[role="alert"]').text()).toContain('Invalid credentials')
     expect(router.currentRoute.value.path).toBe('/auth/login')
   })

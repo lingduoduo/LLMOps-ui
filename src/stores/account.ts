@@ -4,10 +4,15 @@ import type { Account } from '@/models/account'
 import type { BaseResponse } from '@/models/base'
 import { get } from '@/utils/request'
 import { getAccessToken } from '@/utils/auth'
+import { DEV_ACCOUNT, isDevSession } from '@/services/auth'
 
 export const useAccountStore = defineStore('account', () => {
   const account = ref<Account | null>(null)
   const load = async () => {
+    if (isDevSession()) {
+      account.value = DEV_ACCOUNT
+      return
+    }
     const accessToken = getAccessToken()
     const response = await get<BaseResponse<Account>>('/account')
     if (!accessToken || getAccessToken() !== accessToken) return

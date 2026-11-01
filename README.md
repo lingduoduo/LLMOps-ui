@@ -69,7 +69,9 @@ and [app service](https://github.com/lingduoduo/LLMOps-Flask-Service/blob/main/i
 - `POST /auth/password-login` accepts `{email,password}` and returns
   `{code:"success",message:"",data:{access_token,expire_at}}`.
   `expire_at` is a Unix timestamp in seconds. Use an existing backend account;
-  the UI does not create accounts.
+  the UI does not create accounts. On the Vite dev server only (`npm run dev`),
+  `admin` / `admin` signs in locally without the backend; other API calls still
+  need the backend. Production builds exclude this login.
 - Authenticated requests send `Authorization: Bearer <access_token>`.
   `GET /account` loads the profile; `POST /auth/logout` signs out. Unauthorized
   responses clear the local session and return to login, including when the
