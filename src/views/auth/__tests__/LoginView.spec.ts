@@ -39,33 +39,35 @@ async function submit(wrapper: VueWrapper, email = 'user@example.com', password 
 
 describe('password login', () => {
   it('stores the backend credential, fetches the account, and opens applications', async () => {
-    const fetch = vi.fn(async (url: string, options: RequestInit) => {
-      if (url.endsWith('/auth/password-login')) {
-        expect(JSON.parse(options.body as string)).toEqual({
-          email: 'user@example.com',
-          password: 'password123',
-        })
-        return new Response(
-          JSON.stringify({
-            code: 'success',
-            message: '',
-            data: { access_token: 'test-token', expire_at: Math.floor(Date.now() / 1000) + 3600 },
-          }),
-        )
-      }
-      expect(url).toBe('/api/account')
-      expect(new Headers(options.headers).get('Authorization')).toBe('Bearer test-token')
-      return new Response(
-        JSON.stringify({
-          code: 'success',
-          message: '',
-          data: { id: 'account-id', name: 'Test', email: 'user@example.com', avatar: '' },
-        }),
-      )
-    })
+    const fetch = vi.fn<typeof globalThis.fetch>(async (url) =>
+      String(url).endsWith('/auth/password-login')
+        ? new Response(
+            JSON.stringify({
+              code: 'success',
+              message: '',
+              data: { access_token: 'test-token', expire_at: Math.floor(Date.now() / 1000) + 3600 },
+            }),
+          )
+        : new Response(
+            JSON.stringify({
+              code: 'success',
+              message: '',
+              data: { id: 'account-id', name: 'Test', email: 'user@example.com', avatar: '' },
+            }),
+          ),
+    )
     vi.stubGlobal('fetch', fetch)
     const { wrapper, router } = await render()
     await submit(wrapper)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    const [[loginUrl, loginOptions], [accountUrl, accountOptions]] = fetch.mock.calls
+    expect(loginUrl).toBe('/api/auth/password-login')
+    expect(JSON.parse(loginOptions?.body as string)).toEqual({
+      email: 'user@example.com',
+      password: 'password123',
+    })
+    expect(accountUrl).toBe('/api/account')
+    expect(new Headers(accountOptions?.headers).get('Authorization')).toBe('Bearer test-token')
     expect(router.currentRoute.value.path).toBe('/space/apps')
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
