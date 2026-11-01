@@ -1,1 +1,5 @@
-@import "tailwindcss";
+/* Arco ships unlayered CSS (incl. normalize.css), which would beat Tailwind's layered
+   utilities regardless of specificity. Keep it in its own layer below utilities. */
+@layer theme, base, arco, components, utilities;
+@import '@arco-design/web-vue/dist/arco.css' layer(arco);
+@import 'tailwindcss';
