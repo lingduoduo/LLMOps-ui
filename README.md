@@ -113,11 +113,19 @@ Lint the project (use `npm run lint:fix` to apply automatic fixes):
 npm run lint
 ```
 
+Check formatting with Prettier (use `npm run format` to rewrite files in `src/`):
+
+```sh
+npm run format:check
+```
+
 ## Recommended editor setup
 
 Use [Visual Studio Code](https://code.visualstudio.com/) with the
 [Vue - Official extension (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.volar).
-Disable Vetur if it is installed.
+Disable Vetur if it is installed. The workspace recommends the ESLint, Prettier,
+and Vitest extensions too, and `.vscode/settings.json` formats files with
+Prettier on save.
 
 `vue-tsc` provides TypeScript checking for `.vue` files. See the
 [Vite configuration reference](https://vite.dev/config/) for configuration
