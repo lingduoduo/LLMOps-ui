@@ -2,7 +2,7 @@
   <div class="about">
     <h1>This is an about page</h1>
     <h1 class="text-3xl font-bold underline text-blue-700">Hello world!</h1>
-    <p>The Dream Factory for Programmers</p>
+    <p>LLMOps</p>
     <a-button type="primary">Register/Login</a-button>
     <a-avatar :style="{ backgroundColor: '#3370ff' }">
       <icon-user />
