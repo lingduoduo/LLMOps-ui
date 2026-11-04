@@ -37,17 +37,17 @@ const router = createRouter({
           name: 'space-apps-list',
           component: () => import('@/views/space/apps/ListView.vue'),
         },
-        {
-          path: 'space/apps/:app_id',
-          name: 'space-apps-detail',
-          component: () => import('@/views/space/apps/DetailView.vue'),
-        },
       ],
     },
     {
       path: '/',
       component: BlankLayout,
       children: [
+        {
+          path: 'space/apps/:app_id',
+          name: 'space-apps-detail',
+          component: () => import('@/views/space/apps/DetailView.vue'),
+        },
         {
           path: 'auth/login',
           name: 'auth-login',
@@ -68,7 +68,7 @@ const router = createRouter({
 // True while the guard confirms the session with the backend; the guard redirects itself then.
 let verifyingSession = false
 
-router.beforeEach(async (to, _from) => {
+router.beforeEach(async (to) => {
   if (to.meta.public) {
     if (to.name === 'auth-login' && isLogin()) return { name: 'space-apps-list' }
     return
