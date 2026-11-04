@@ -48,18 +48,37 @@ npm run dev
 
 ## Backend configuration
 
-Copy `.env.example` to `.env.local` and set `VITE_API_BASE_URL` if needed.
-The default `/api` prefix uses Vite's development proxy to
-`http://localhost:5000`, stripping `/api` before forwarding.
-Alternatively, set an absolute backend URL such as
-`VITE_API_BASE_URL=https://backend.example.com`. These values are public,
-build-time settings; do not put secrets in them.
+Copy `.env.example` to `.env.local` and pick one of two request modes:
 
-For production, either configure your web server to proxy `/api` to the backend,
-or set an absolute URL before building. The Vite development proxy is not part
-of the production build. Cross-origin backends must allow the frontend origin
-and credentials in their CORS configuration. Configure SPA fallback to
-`index.html` for frontend routes.
+- **Proxied (default).** A relative `VITE_API_BASE_URL` such as `/api` keeps
+  requests same-origin. Vite's development proxy strips the prefix and forwards
+  to `VITE_PROXY_TARGET` (default `http://localhost:5000`), so CORS never applies.
+- **Direct cross-origin.** An absolute URL such as
+  `VITE_API_BASE_URL=http://localhost:5000` disables the proxy; the browser
+  calls the backend directly and relies on its Flask-CORS configuration.
+
+```sh
+# .env.local — proxied: GET /api/apps?page=1 is forwarded to http://localhost:5000/apps?page=1
+VITE_API_BASE_URL=/api
+VITE_PROXY_TARGET=http://localhost:5000
+
+# .env.local — direct: the browser calls http://localhost:5000/apps?page=1 itself
+VITE_API_BASE_URL=http://localhost:5000
+```
+
+Streamed debug responses (`text/event-stream`) pass through the proxy
+unbuffered, so both modes stream. The backend enables Flask-CORS for all
+origins with `supports_credentials`, which reflects the caller's origin; restrict
+`origins` in its `internal/server/http.py` before exposing it beyond local
+development. `npm run dev:mock` answers `/api` in-process and ignores both settings.
+
+These values are public, build-time settings; do not put secrets in them.
+
+For production, either configure your web server to proxy `/api` to the backend
+(stripping the prefix, as the dev proxy does), or set an absolute URL before
+building. The Vite development proxy is not part of the production build.
+Cross-origin backends must allow the frontend origin and credentials in their
+CORS configuration. Configure SPA fallback to `index.html` for frontend routes.
 
 The API contracts are taken from the backend's
 [router](https://github.com/lingduoduo/LLMOps-Flask-Service/blob/main/internal/router/router.py),
