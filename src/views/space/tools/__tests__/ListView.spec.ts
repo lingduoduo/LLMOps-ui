@@ -99,7 +99,7 @@ describe('personal space tools', () => {
       ['a', 'b'],
     )
     expect(view.text()).toContain('All tools loaded')
-    expect(view.get('[data-provider="a"]').text()).toContain('You · Edited')
+    expect(view.get('[data-provider="a"]').text()).toMatch(/You · Edited\s*\d{2}-\d{2} \d{2}:\d{2}/)
     await router.push('/space/tools?search_word=sun')
     await flushPromises()
     expect(getApiToolProvidersWithPage).toHaveBeenLastCalledWith(1, 20, 'sun')

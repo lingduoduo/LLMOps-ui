@@ -11,7 +11,7 @@ import {
   validateOpenAPISchema,
 } from '@/services/api-tool'
 import type { ApiToolHeader, ApiToolProvider } from '@/models/api-tool'
-import { formatDate } from '@/utils/format'
+import moment from 'moment'
 import ToolList from '@/components/ToolList.vue'
 import { useAccountStore } from '@/stores/account'
 
@@ -280,7 +280,7 @@ const remove = async () => {
               </a-avatar>
               <div class="text-xs text-gray-400">
                 {{ accountStore.account?.name || 'You' }} · Edited
-                {{ formatDate(provider.created_at) }}
+                {{ moment.unix(provider.created_at).format('MM-DD HH:mm') }}
               </div>
             </div>
           </button>
