@@ -13,7 +13,7 @@ services described in earlier versions of this README are not included here.
 - English sidebar navigation, account name/avatar/password settings, and Open API key management.
 - Tool marketplace with category/search filters and custom API tool management.
 - Draft prompt and conversation-round editing, with model/capability information.
-- Streamed debug conversations with visible errors, retryable input, and
+- JSON debug conversations with visible errors, retryable input, and
   cancellation on clear/navigation. Clearing resets the backend conversation.
 - Arco Design for Vue components and Tailwind CSS utilities.
 
@@ -75,8 +75,7 @@ VITE_PROXY_TARGET=http://localhost:5000
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
-Streamed debug responses (`text/event-stream`) pass through the proxy
-unbuffered, so both modes stream. The backend enables Flask-CORS for all
+JSON debug requests work in both request modes. The backend enables Flask-CORS for all
 origins with `supports_credentials`, which reflects the caller's origin; restrict
 `origins` in its `internal/server/http.py` before exposing it beyond local
 development. `npm run dev:mock` answers `/api` in-process and ignores both settings.
@@ -108,13 +107,11 @@ and [app service](https://github.com/lingduoduo/LLMOps-Flask-Service/blob/main/i
   a `{list,paginator}` data payload.
 - `GET/POST /apps/{app_id}/draft-app-config` loads and updates draft settings.
   Saving sends only `preset_prompt` and `dialog_round`.
-- `POST /apps/{app_id}/conversations` accepts `{query}` and returns SSE.
-  `agent_message` events append answer fragments; `agent_end` completes a reply;
-  errors and interrupted streams display a failure. The previous `/debug`
-  JSON endpoint is not used.
+- `POST /apps/{app_id}/debug` accepts `{query}` and returns a JSON
+  `{code,message,data:{content}}` response. The frontend expects this endpoint;
+  a backend exposing only the SSE `/conversations` endpoint must also provide `/debug`.
 - Clear uses `POST /apps/{app_id}/conversations/delete-debug-conversation`.
-  Cancellation also attempts to stop a known backend task through
-  `POST /apps/{app_id}/conversations/tasks/{task_id}/stop`.
+  Clear and navigation abort pending debug requests and discard late responses.
 
 Requests time out after 100 seconds and abort their network operation. Chat
 messages are displayed for the current view; the backend maintains conversation

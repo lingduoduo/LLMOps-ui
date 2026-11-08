@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { Avatar as AAvatar, Button as AButton } from '@arco-design/web-vue'
 import { IconApps, IconEmpty, IconLoading, IconSend } from '@arco-design/web-vue/es/icon'
 import DraftConfigPanel from '@/components/DraftConfigPanel.vue'
-import { clearDebugConversation, debugApp, stopDebugChat } from '@/services/app'
+import { clearDebugConversation, debugApp } from '@/services/app'
 
 const humanAvatar = `${import.meta.env.BASE_URL}avatars/female-avatar.png`
 type ChatMessage = { id: number; role: 'human' | 'ai'; content: string }
@@ -18,12 +18,8 @@ const route = useRoute()
 let nextMessageId = 0
 let activeRequest: AbortController | undefined
 let clearRequest: AbortController | undefined
-let activeTask: { appId: string; taskId: string } | undefined
 
 const cancelRequest = () => {
-  const task = activeTask
-  activeTask = undefined
-  if (task) void stopDebugChat(task.appId, task.taskId).catch(() => {})
   activeRequest?.abort()
   activeRequest = undefined
   isLoading.value = false
@@ -93,36 +89,24 @@ const send = async () => {
   error.value = ''
   isLoading.value = true
 
-  let aiMessageId: number | undefined
   try {
     const appId = String(route.params.app_id)
-    const response = await debugApp(appId, humanQuery, controller.signal, (event, data) => {
-      if (activeRequest !== controller) return
-      if (typeof data.task_id === 'string' && data.task_id)
-        activeTask = { appId, taskId: data.task_id }
-      if (event !== 'agent_message' || typeof data.answer !== 'string' || !data.answer) return
-      if (aiMessageId === undefined) {
-        aiMessageId = nextMessageId++
-        messages.value.push({ id: aiMessageId, role: 'ai', content: '' })
-      }
-      const message = messages.value.find((item) => item.id === aiMessageId)
-      if (message) message.content += data.answer
-    })
+    const response = await debugApp(appId, humanQuery, controller.signal)
     if (activeRequest !== controller) return
-    if (aiMessageId === undefined) {
-      messages.value.push({ id: nextMessageId++, role: 'ai', content: response.data.content })
+    const content = response.data?.content
+    if (typeof content !== 'string' || !content.trim()) {
+      throw new Error('The application returned no answer.')
     }
+    messages.value.push({ id: nextMessageId++, role: 'ai', content })
   } catch (cause) {
     if (activeRequest !== controller) return
     error.value =
       cause instanceof Error ? cause.message : 'Unable to send the message. Please try again.'
-    if (aiMessageId === undefined)
-      messages.value = messages.value.filter((message) => message.id !== humanMessage.id)
+    messages.value = messages.value.filter((message) => message.id !== humanMessage.id)
     if (!query.value) query.value = humanQuery
   } finally {
     if (activeRequest === controller) {
       activeRequest = undefined
-      activeTask = undefined
       isLoading.value = false
     }
   }
