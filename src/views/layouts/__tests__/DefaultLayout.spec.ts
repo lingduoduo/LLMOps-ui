@@ -17,7 +17,7 @@ afterEach(() => {
   sessionStorage.clear()
   vi.restoreAllMocks()
 })
-async function render(account = true) {
+async function render(account = true, path = '/store/tools') {
   const pinia = createPinia()
   const store = useAccountStore(pinia)
   if (account)
@@ -25,14 +25,46 @@ async function render(account = true) {
   const load = vi.spyOn(store, 'load').mockRejectedValue(new Error('Account unavailable'))
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/:pathMatch(.*)*', component: { template: '<p>Page content</p>' } }],
+    routes: [
+      ...[
+        { path: '/home', name: 'pages-home', section: 'home' },
+        { path: '/space/apps', name: 'space-apps-list', section: 'space' },
+        { path: '/space/apps/create', name: 'space-apps-create', section: 'space' },
+        { path: '/store/apps', name: 'store-apps-list', section: 'apps' },
+        { path: '/store/tools', name: 'store-tools-list', section: 'tools' },
+        { path: '/open', name: 'open-api', section: 'open' },
+      ].map(({ path, name, section }) => ({
+        path,
+        name,
+        meta: { navigationSection: section as import('@/router/navigation').NavigationSection },
+        component: { template: '<p>Page content</p>' },
+      })),
+      {
+        path: '/account/settings',
+        name: 'account-settings',
+        component: { template: '<p>Settings</p>' },
+      },
+    ],
   })
-  await router.push('/store/tools')
+  await router.push(path)
   wrapper = mount(DefaultLayout, { global: { plugins: [pinia, router] } })
   await flushPromises()
   return { view: wrapper, store, load, router }
 }
 describe('default sidebar layout', () => {
+  it.each([
+    ['/home', '/home'],
+    ['/space/apps', '/space/apps'],
+    ['/space/apps/create', '/space/apps'],
+    ['/store/apps', '/store/apps'],
+    ['/store/tools', '/store/tools'],
+    ['/open', '/open'],
+  ])('highlights only the correct sidebar section at %s', async (path, activeLink) => {
+    const { view } = await render(true, path)
+    const current = view.findAll('nav a[aria-current="page"]')
+    expect(current).toHaveLength(1)
+    expect(current[0]?.attributes('href')).toBe(activeLink)
+  })
   it('renders one page outlet, English navigation, and the signed-in account', async () => {
     const { view, load } = await render()
     expect(view.text()).toContain('Ada Lovelace')

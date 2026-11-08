@@ -3,11 +3,13 @@ import { isLogin, SESSION_CLEARED_EVENT } from '@/utils/auth'
 import { useAccountStore } from '@/stores/account'
 import DefaultLayout from '@/views/layouts/DefaultLayout.vue'
 import BlankLayout from '@/views/layouts/BlankLayout.vue'
+import type { NavigationSection } from './navigation'
 
 declare module 'vue-router' {
   interface RouteMeta {
     // Reachable without signing in.
     public?: boolean
+    navigationSection?: NavigationSection
   }
 }
 
@@ -25,6 +27,7 @@ const router = createRouter({
         {
           path: 'home',
           name: 'pages-home',
+          meta: { navigationSection: 'home' },
           component: () => import('@/views/pages/HomeView.vue'),
         },
         {
@@ -35,11 +38,13 @@ const router = createRouter({
         {
           path: 'space/apps',
           name: 'space-apps-list',
+          meta: { navigationSection: 'space' },
           component: () => import('@/views/space/apps/ListView.vue'),
         },
         {
           path: 'space/apps/create',
           name: 'space-apps-create',
+          meta: { navigationSection: 'space' },
           component: () => import('@/views/space/apps/CreateView.vue'),
         },
         {
@@ -50,16 +55,19 @@ const router = createRouter({
         {
           path: 'open',
           name: 'open-api',
+          meta: { navigationSection: 'open' },
           component: () => import('@/views/open/ApiKeysView.vue'),
         },
         {
           path: 'store/tools',
           name: 'store-tools-list',
+          meta: { navigationSection: 'tools' },
           component: () => import('@/views/store/tools/ListView.vue'),
         },
         {
           path: 'store/apps',
           name: 'store-apps-list',
+          meta: { navigationSection: 'apps' },
           component: () => import('@/views/store/apps/ListView.vue'),
         },
       ],
@@ -71,6 +79,7 @@ const router = createRouter({
         {
           path: 'space/apps/:app_id',
           name: 'space-apps-detail',
+          meta: { navigationSection: 'space' },
           component: () => import('@/views/space/apps/DetailView.vue'),
         },
         {
