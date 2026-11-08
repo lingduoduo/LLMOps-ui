@@ -6,6 +6,7 @@ import { IconApps, IconEmpty, IconLoading, IconSend } from '@arco-design/web-vue
 import DraftConfigPanel from '@/components/DraftConfigPanel.vue'
 import { clearDebugConversation, debugApp, stopDebugChat } from '@/services/app'
 
+const humanAvatar = `${import.meta.env.BASE_URL}avatars/female-avatar.png`
 type ChatMessage = { id: number; role: 'human' | 'ai'; content: string }
 const query = ref('')
 const messages = ref<ChatMessage[]>([])
@@ -177,12 +178,13 @@ const send = async () => {
             <!-- Avatar for Human -->
             <a-avatar
               v-if="message.role === 'human'"
+              :image-url="humanAvatar"
+              object-fit="cover"
+              aria-label="Your avatar"
               :style="{ backgroundColor: '#3370ff' }"
               class="flex-shrink-0"
               :size="30"
-            >
-              You
-            </a-avatar>
+            />
             <!-- Avatar for AI -->
             <a-avatar
               v-else
