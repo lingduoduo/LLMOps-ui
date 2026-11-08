@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { navigationGroups, sidebarActions } from '@/router/navigation'
 import { Avatar as AAvatar } from '@arco-design/web-vue'
 import { IconPlus, IconPoweroff, IconSettings } from '@arco-design/web-vue/es/icon'
 import IconHome from '@/components/icons/IconHome.vue'
@@ -25,24 +26,14 @@ const isLoggingOut = ref(false)
 const accountInitial = computed(
   () => accountStore.account?.name.trim().charAt(0).toUpperCase() || 'U',
 )
-const navigationGroups = [
-  {
-    label: 'Workspace',
-    items: [
-      { to: '/home', label: 'Home', icon: IconHome, activeIcon: IconHomeFull },
-      { to: '/space/apps', label: 'Personal Space', icon: IconSpace, activeIcon: IconSpaceFull },
-    ],
-  },
-  {
-    label: 'Explore',
-    items: [
-      { to: '/store/apps', label: 'App Marketplace', icon: IconApp, activeIcon: IconAppFull },
-      { to: '/store/tools', label: 'Tool Marketplace', icon: IconTool, activeIcon: IconToolFull },
-      { to: '/open', label: 'Open API', icon: IconOpenApi, activeIcon: IconOpenApiFull },
-    ],
-  },
-]
-const isActive = (path: string) => route.path === path || route.path.startsWith(`${path}/`)
+const navigationIcons = {
+  home: { icon: IconHome, activeIcon: IconHomeFull },
+  space: { icon: IconSpace, activeIcon: IconSpaceFull },
+  apps: { icon: IconApp, activeIcon: IconAppFull },
+  tools: { icon: IconTool, activeIcon: IconToolFull },
+  open: { icon: IconOpenApi, activeIcon: IconOpenApiFull },
+}
+const isActive = (section: string) => route.meta.navigationSection === section
 let mounted = true
 const clearAccount = () => accountStore.clear()
 window.addEventListener(SESSION_CLEARED_EVENT, clearAccount)
@@ -88,12 +79,12 @@ const signOut = async () => {
         class="flex h-full flex-col rounded-lg bg-white px-3 py-5 md:sticky md:top-2 md:h-[calc(100dvh-1rem)] md:overflow-y-auto"
       >
         <router-link
-          to="/home"
+          :to="sidebarActions.home"
           class="mb-6 rounded px-2 text-lg font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-blue-700"
           >LLMOps UI</router-link
         >
         <router-link
-          to="/space/apps/create"
+          :to="sidebarActions.createApp"
           class="mb-5 flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
         >
           <icon-plus aria-hidden="true" />Create AI Application
@@ -101,25 +92,29 @@ const signOut = async () => {
         <nav aria-label="Main navigation" class="flex flex-col gap-5">
           <div v-for="group in navigationGroups" :key="group.label">
             <p class="mb-2 px-2 text-xs font-medium text-gray-500">{{ group.label }}</p>
-            <div class="flex flex-wrap gap-1 md:flex-col">
+            <div class="flex flex-col gap-2">
               <router-link
                 v-for="item in group.items"
-                :key="item.to"
-                :to="item.to"
-                :aria-current="isActive(item.to) ? 'page' : undefined"
+                :key="item.routeName"
+                :to="{ name: item.routeName }"
+                :aria-current="isActive(item.section) ? 'page' : undefined"
                 :class="[
-                  'flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-blue-700',
-                  isActive(item.to)
+                  'grid min-h-10 w-full grid-cols-[16px_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-2 text-left text-sm leading-5 transition-colors focus-visible:outline-2 focus-visible:outline-blue-700',
+                  isActive(item.section)
                     ? 'bg-blue-50 font-medium text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
                 ]"
               >
                 <component
-                  :is="isActive(item.to) ? item.activeIcon : item.icon"
+                  :is="
+                    isActive(item.section)
+                      ? navigationIcons[item.section].activeIcon
+                      : navigationIcons[item.section].icon
+                  "
                   aria-hidden="true"
-                  class="shrink-0"
+                  class="block h-4 w-4 shrink-0"
                 />
-                {{ item.label }}
+                <span class="min-w-0">{{ item.label }}</span>
               </router-link>
             </div>
           </div>
@@ -160,7 +155,7 @@ const signOut = async () => {
               class="rounded-lg border border-gray-200 bg-white p-1 shadow-sm md:absolute md:bottom-full md:left-0 md:mb-2 md:w-full"
             >
               <router-link
-                to="/account/settings"
+                :to="sidebarActions.account"
                 class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-700"
               >
                 <icon-settings aria-hidden="true" />Account settings

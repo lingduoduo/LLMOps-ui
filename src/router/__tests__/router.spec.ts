@@ -3,6 +3,7 @@ import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { clearCredential, isLogin, setCredential } from '@/utils/auth'
 import router from '../index'
+import { navigationGroups } from '../navigation'
 
 const accountResponse = () =>
   new Response(
@@ -138,5 +139,20 @@ describe('unknown URLs', () => {
     await router.push('/does/not/exist')
     expect(router.currentRoute.value.name).toBe('not-found')
     expect(router.currentRoute.value.path).toBe('/does/not/exist')
+  })
+})
+
+describe('sidebar destinations', () => {
+  it('maps each sidebar link to its own page and active section', () => {
+    const destinations = navigationGroups.flatMap((group) => [...group.items])
+    const paths = destinations.map((item) => {
+      const resolved = router.resolve({ name: item.routeName })
+      expect(resolved.meta.navigationSection).toBe(item.section)
+      expect(resolved.matched.at(-1)?.components?.default).toBeDefined()
+      return resolved.path
+    })
+    expect(new Set(paths).size).toBe(destinations.length)
+    expect(router.resolve('/space/apps/create').meta.navigationSection).toBe('space')
+    expect(router.resolve('/space/apps/example').meta.navigationSection).toBe('space')
   })
 })
