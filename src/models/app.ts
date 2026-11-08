@@ -1,8 +1,8 @@
 import { type BaseResponse } from '@/models/base'
 
-// Application preview and debugging API response
+// Application preview and debug response.
 export type DebugAppResponse = BaseResponse<{
-  content: string // Debug or preview content returned from the API
+  content: string
 }>
 
 export type AppSummary = {

@@ -1,5 +1,22 @@
-/* Arco ships unlayered CSS (incl. normalize.css), which would beat Tailwind's layered
-   utilities regardless of specificity. Keep it in its own layer below utilities. */
+/* Keep Arco below Tailwind utilities in the cascade. */
 @layer theme, base, arco, components, utilities;
 @import '@arco-design/web-vue/dist/arco.css' layer(arco);
 @import 'tailwindcss';
+
+@layer utilities {
+  .scrollbar-w-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-w-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    width: 100%;
+  }
+}

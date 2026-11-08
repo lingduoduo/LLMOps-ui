@@ -13,3 +13,18 @@ export const httpCode = {
   forbidden: 'forbidden', // Forbidden action
   validateError: 'validate_error', // Validation error
 }
+
+export const typeMap: Record<string, string> = {
+  str: 'String',
+  string: 'String',
+  int: 'Integer',
+  integer: 'Integer',
+  float: 'Number',
+  number: 'Number',
+  bool: 'Boolean',
+  boolean: 'Boolean',
+  array: 'Array',
+  list: 'Array',
+  object: 'Object',
+  dict: 'Object',
+}
