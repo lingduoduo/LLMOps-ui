@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getApps } from '@/services/app'
 import type { AppSummary } from '@/models/app'
 
+const route = useRoute()
 const router = useRouter()
 const appId = ref('')
 const error = ref('')
@@ -11,7 +12,9 @@ const listError = ref('')
 const apps = ref<AppSummary[]>([])
 const page = ref(1)
 const totalPages = ref(0)
-const search = ref('')
+// The search term comes from Personal Space's shared search box.
+const searchWord = () =>
+  typeof route.query.search_word === 'string' ? route.query.search_word.trim() : ''
 const isLoading = ref(false)
 let activeRequest: AbortController | undefined
 
@@ -22,7 +25,7 @@ const loadApps = async (requestedPage = 1) => {
   isLoading.value = true
   listError.value = ''
   try {
-    const data = await getApps(requestedPage, search.value.trim(), controller.signal)
+    const data = await getApps(requestedPage, searchWord(), controller.signal)
     if (activeRequest !== controller) return
     apps.value = data.list
     page.value = data.paginator.current_page
@@ -38,6 +41,10 @@ const loadApps = async (requestedPage = 1) => {
   }
 }
 onMounted(() => loadApps())
+watch(
+  () => route.query.search_word,
+  () => loadApps(1),
+)
 onBeforeUnmount(() => {
   activeRequest?.abort()
   activeRequest = undefined
@@ -55,28 +62,10 @@ const openApp = () => {
 </script>
 
 <template>
-  <main class="max-w-2xl mx-auto px-6 py-12">
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-      <h1 class="text-2xl font-semibold">Applications</h1>
-      <router-link
-        to="/space/apps/create"
-        class="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white"
-        >Create AI Application</router-link
-      >
-    </div>
+  <section aria-label="AI apps" class="max-w-2xl pb-6">
     <p class="text-gray-600 mb-6">
       Select an application from your account, or open it directly by ID.
     </p>
-    <form class="flex gap-3 mb-6" aria-label="Search applications" @submit.prevent="loadApps(1)">
-      <input
-        v-model="search"
-        type="search"
-        aria-label="Search applications"
-        placeholder="Search applications"
-        class="border rounded px-3 py-2 min-w-0 flex-1"
-      />
-      <button type="submit" class="border rounded px-4 py-2">Search</button>
-    </form>
     <p v-if="isLoading" role="status">Loading applications…</p>
     <div v-if="listError" role="alert" class="text-red-700 mb-4">
       {{ listError }} <button type="button" class="underline" @click="loadApps(page)">Retry</button>
@@ -126,5 +115,5 @@ const openApp = () => {
         Open debug preview
       </button>
     </form>
-  </main>
+  </section>
 </template>

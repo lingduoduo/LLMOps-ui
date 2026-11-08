@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import ArcoVue from '@arco-design/web-vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import ListView from '../ListView.vue'
 import { getBuiltinTools, getCategories } from '@/services/builtin-tool'
 
@@ -26,8 +27,12 @@ function render() {
     'matchMedia',
     vi.fn(() => ({ matches: false, addListener: vi.fn(), removeListener: vi.fn() })),
   )
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:pathMatch(.*)*', name: 'space-tools-list', component: ListView }],
+  })
   wrapper = mount(ListView, {
-    global: { plugins: [ArcoVue], stubs: { CustomToolsPanel: true } },
+    global: { plugins: [ArcoVue, router] },
     attachTo: document.body,
   })
   return wrapper
