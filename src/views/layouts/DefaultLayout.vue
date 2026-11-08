@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { navigationGroups, sidebarActions } from '@/router/navigation'
-import { Avatar as AAvatar } from '@arco-design/web-vue'
+import {
+  Avatar as AAvatar,
+  Button as AButton,
+  Dropdown as ADropdown,
+  Doption as ADoption,
+  Layout as ALayout,
+  LayoutSider as ALayoutSider,
+  LayoutContent as ALayoutContent,
+} from '@arco-design/web-vue'
 import { IconPlus, IconPoweroff, IconSettings } from '@arco-design/web-vue/es/icon'
 import IconHome from '@/components/icons/IconHome.vue'
 import IconHomeFull from '@/components/icons/IconHomeFull.vue'
@@ -19,6 +27,8 @@ import { useAccountStore } from '@/stores/account'
 import { clearCredential, SESSION_CLEARED_EVENT } from '@/utils/auth'
 
 const route = useRoute()
+const router = useRouter()
+const accountMenuOpen = ref(false)
 const accountStore = useAccountStore()
 const error = ref('')
 const isLoadingAccount = ref(false)
@@ -71,38 +81,39 @@ const signOut = async () => {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-white text-gray-900 md:flex">
-    <aside
-      class="border-b border-gray-200 bg-gray-50 p-2 md:w-60 md:shrink-0 md:border-b-0 md:border-r"
-    >
+  <a-layout has-sider class="h-full min-h-dvh bg-white text-gray-900">
+    <a-layout-sider :width="240" class="min-h-screen bg-gray-50 p-2 shadow-none">
       <div
-        class="flex h-full flex-col rounded-lg bg-white px-3 py-5 md:sticky md:top-2 md:h-[calc(100dvh-1rem)] md:overflow-y-auto"
+        class="flex h-full min-h-[calc(100dvh-16px)] flex-col justify-between rounded-lg bg-white px-2 py-4"
       >
-        <router-link
-          :to="sidebarActions.home"
-          class="mb-6 rounded px-2 text-lg font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-blue-700"
-          >LLMOps UI</router-link
-        >
-        <router-link
-          :to="sidebarActions.createApp"
-          class="mb-5 flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
-        >
-          <icon-plus aria-hidden="true" />Create AI Application
-        </router-link>
-        <nav aria-label="Main navigation" class="flex flex-col gap-5">
-          <div v-for="group in navigationGroups" :key="group.label">
-            <p class="mb-2 px-2 text-xs font-medium text-gray-500">{{ group.label }}</p>
-            <div class="flex flex-col gap-2">
+        <div>
+          <router-link
+            :to="sidebarActions.home"
+            aria-label="LLMOps UI home"
+            class="mb-5 block h-9 w-[110px] rounded-lg bg-gray-200 px-2 text-sm font-semibold leading-9 transition-colors hover:bg-gray-300 focus-visible:outline-2 focus-visible:outline-blue-700"
+            >LLMOps UI</router-link
+          >
+          <a-button
+            type="primary"
+            long
+            class="mb-4 rounded-lg"
+            aria-label="Create AI Application"
+            @click="router.push(sidebarActions.createApp)"
+          >
+            <template #icon><icon-plus aria-hidden="true" /></template>
+            Create AI Application
+          </a-button>
+          <nav aria-label="Main navigation" class="flex flex-col gap-2">
+            <template v-for="group in navigationGroups" :key="group.label">
+              <p v-if="group.label === 'Explore'" class="px-2 text-sm text-gray-500">Explore</p>
               <router-link
                 v-for="item in group.items"
                 :key="item.routeName"
                 :to="{ name: item.routeName }"
                 :aria-current="isActive(item.section) ? 'page' : undefined"
                 :class="[
-                  'grid min-h-10 w-full grid-cols-[16px_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-2 text-left text-sm leading-5 transition-colors focus-visible:outline-2 focus-visible:outline-blue-700',
-                  isActive(item.section)
-                    ? 'bg-blue-50 font-medium text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+                  'flex h-8 items-center gap-2 rounded-lg px-2 text-sm leading-8 text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-blue-700',
+                  { 'bg-gray-100': isActive(item.section) },
                 ]"
               >
                 <component
@@ -116,17 +127,17 @@ const signOut = async () => {
                 />
                 <span class="min-w-0">{{ item.label }}</span>
               </router-link>
-            </div>
-          </div>
-        </nav>
-        <section
-          aria-label="Signed-in account"
-          class="mt-6 border-t border-gray-100 pt-4 md:mt-auto"
-        >
-          <details class="group relative">
-            <summary
+            </template>
+          </nav>
+        </div>
+        <section aria-label="Signed-in account" class="mt-6">
+          <a-dropdown v-model:popup-visible="accountMenuOpen" position="tl" trigger="click">
+            <button
+              type="button"
               aria-label="Account menu"
-              class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-lg px-1 py-2 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-blue-700"
+              aria-haspopup="menu"
+              :aria-expanded="accountMenuOpen"
+              class="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-700"
             >
               <a-avatar
                 :size="32"
@@ -135,47 +146,39 @@ const signOut = async () => {
                 aria-label="Your avatar"
                 >{{ accountInitial }}</a-avatar
               >
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium" :title="accountStore.account?.name">
-                  {{ accountStore.account?.name || 'Your account' }}
-                </p>
-                <p
+              <span class="flex min-w-0 flex-col">
+                <span class="truncate text-sm text-gray-900" :title="accountStore.account?.name">{{
+                  accountStore.account?.name || 'Your account'
+                }}</span>
+                <span
                   v-if="accountStore.account?.email"
                   class="truncate text-xs text-gray-500"
                   :title="accountStore.account.email"
+                  >{{ accountStore.account.email }}</span
                 >
-                  {{ accountStore.account.email }}
-                </p>
-                <p v-if="isLoadingAccount" role="status" class="text-xs text-gray-500">
-                  Loading account…
-                </p>
-              </div>
-            </summary>
-            <div
-              class="rounded-lg border border-gray-200 bg-white p-1 shadow-sm md:absolute md:bottom-full md:left-0 md:mb-2 md:w-full"
-            >
-              <router-link
-                :to="sidebarActions.account"
-                class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-700"
+                <span v-if="isLoadingAccount" role="status" class="text-xs text-gray-500"
+                  >Loading account…</span
+                >
+              </span>
+            </button>
+            <template #content>
+              <a-doption
+                data-action="account-settings"
+                @click="router.push(sidebarActions.account)"
               >
-                <icon-settings aria-hidden="true" />Account settings
-              </router-link>
-              <button
-                type="button"
-                aria-label="Sign out"
-                :disabled="isLoggingOut"
-                class="mt-3 flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-sm text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-50"
-                @click="signOut"
-              >
-                <icon-poweroff aria-hidden="true" />
+                <template #icon><icon-settings aria-hidden="true" /></template>
+                Account settings
+              </a-doption>
+              <a-doption data-action="sign-out" :disabled="isLoggingOut" @click="signOut">
+                <template #icon><icon-poweroff aria-hidden="true" /></template>
                 {{ isLoggingOut ? 'Signing out…' : 'Sign out' }}
-              </button>
-            </div>
-          </details>
+              </a-doption>
+            </template>
+          </a-dropdown>
         </section>
       </div>
-    </aside>
-    <div class="min-w-0 flex-1">
+    </a-layout-sider>
+    <a-layout-content class="min-w-0">
       <div
         v-if="error"
         role="alert"
@@ -193,6 +196,6 @@ const signOut = async () => {
         </button>
       </div>
       <router-view />
-    </div>
-  </div>
+    </a-layout-content>
+  </a-layout>
 </template>

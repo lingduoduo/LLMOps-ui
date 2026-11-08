@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { DOMWrapper, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { LayoutSider, Dropdown } from '@arco-design/web-vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import DefaultLayout from '../DefaultLayout.vue'
 import { useAccountStore } from '@/stores/account'
@@ -16,6 +17,7 @@ afterEach(() => {
   wrapper?.unmount()
   sessionStorage.clear()
   vi.restoreAllMocks()
+  document.body.innerHTML = ''
 })
 async function render(account = true, path = '/store/tools') {
   const pinia = createPinia()
@@ -47,11 +49,24 @@ async function render(account = true, path = '/store/tools') {
     ],
   })
   await router.push(path)
-  wrapper = mount(DefaultLayout, { global: { plugins: [pinia, router] } })
+  wrapper = mount(DefaultLayout, { global: { plugins: [pinia, router] }, attachTo: document.body })
   await flushPromises()
   return { view: wrapper, store, load, router }
 }
 describe('default sidebar layout', () => {
+  it('opens creation and account settings from the reference sidebar controls', async () => {
+    const { view, router } = await render()
+    await view.get('button[aria-label="Create AI Application"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('space-apps-create')
+    await view.get('button[aria-label="Account menu"]').trigger('click')
+    await flushPromises()
+    const option = document.querySelector('[data-action="account-settings"]')
+    expect(option).not.toBeNull()
+    await new DOMWrapper(option!).trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('account-settings')
+  })
   it.each([
     ['/home', '/home'],
     ['/space/apps', '/space/apps'],
@@ -73,15 +88,23 @@ describe('default sidebar layout', () => {
     expect(view.get('a[href="/store/tools"]').attributes('aria-current')).toBe('page')
     expect(view.text().match(/Page content/g)).toHaveLength(1)
     expect(view.get('a[href="/open"]').text()).toBe('Open API')
-    expect(view.get('a[href="/space/apps/create"]').text()).toContain('Create AI Application')
-    expect(view.get('a[href="/account/settings"]').text()).toContain('Account settings')
+    expect(view.get('button[aria-label="Create AI Application"]').text()).toContain(
+      'Create AI Application',
+    )
+    expect(view.getComponent(LayoutSider).props('width')).toBe(240)
+    expect(view.getComponent(Dropdown).props('position')).toBe('tl')
+    expect(view.text()).not.toContain('Workspace')
     expect(load).not.toHaveBeenCalled()
   })
   it('clears local session and account even when logout fails', async () => {
     setCredential({ access_token: 'test', expire_at: Math.floor(Date.now() / 1000) + 1000 })
     vi.mocked(logout).mockRejectedValue(new Error('Offline'))
     const { view, store } = await render()
-    await view.get('button[aria-label="Sign out"]').trigger('click')
+    await view.get('button[aria-label="Account menu"]').trigger('click')
+    await flushPromises()
+    const option = document.querySelector('[data-action="sign-out"]')
+    expect(option).not.toBeNull()
+    await new DOMWrapper(option!).trigger('click')
     await flushPromises()
     expect(isLogin()).toBe(false)
     expect(store.account).toBeNull()

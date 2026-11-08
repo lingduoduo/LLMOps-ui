@@ -6,6 +6,7 @@ export default defineConfig((configEnv) =>
   mergeConfig(viteConfig(configEnv), {
     test: {
       environment: 'jsdom',
+      setupFiles: ['./src/__tests__/setup.ts'],
       exclude: [...configDefaults.exclude, 'e2e/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
     },

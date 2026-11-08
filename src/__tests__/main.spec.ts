@@ -36,6 +36,8 @@ it('renders Arco components used by templates', async () => {
   await router.push('/about')
   await flushPromises()
 
-  expect(document.querySelector('.arco-btn-primary')?.textContent).toContain('Register/Login')
-  expect(document.querySelector('.arco-avatar svg.arco-icon-user')).not.toBeNull()
+  expect(document.querySelector('.about .arco-btn-primary')?.textContent).toContain(
+    'Register/Login',
+  )
+  expect(document.querySelector('.about .arco-avatar svg.arco-icon-user')).not.toBeNull()
 })
