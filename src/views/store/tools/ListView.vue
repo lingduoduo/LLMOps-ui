@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { getBuiltinTools, getCategories } from '@/services/builtin-tool'
 import { apiPrefix, typeMap } from '@/config'
 import type { BuiltinToolProvider, ToolCategory } from '@/models/builtin-tool'
-import { formatMonthDayTime } from '@/utils/format'
+import moment from 'moment'
 
 // Declare variables
 const router = useRouter()
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
               </a-avatar>
               <div class="text-xs text-gray-400">
                 LLMOps · Published
-                {{ formatMonthDayTime(provider.created_at) }}
+                {{ moment.unix(provider.created_at).format('MM-DD HH:mm') }}
               </div>
             </div>
           </a-card>
