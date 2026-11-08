@@ -9,7 +9,9 @@ services described in earlier versions of this README are not included here.
 
 - Password login, expiring bearer credentials in tab-scoped session storage,
   protected routes, current-account information, and logout.
-- Searchable, paginated applications from the backend, plus direct app-ID entry.
+- Searchable, paginated applications, application creation, and direct app-ID entry.
+- English sidebar navigation, account name/avatar/password settings, and Open API key management.
+- Tool marketplace with category/search filters and custom API tool management.
 - Draft prompt and conversation-round editing, with model/capability information.
 - Streamed debug conversations with visible errors, retryable input, and
   cancellation on clear/navigation. Clearing resets the backend conversation.
@@ -17,9 +19,15 @@ services described in earlier versions of this README are not included here.
 
 The frontend integrates with
 [LLMOps-Flask-Service](https://github.com/lingduoduo/LLMOps-Flask-Service).
-It does not include that backend or its database/model infrastructure. App
-creation, advanced tool/dataset/model configuration, and historical message
-browsing are not implemented in this UI.
+It does not include that backend or its database/model infrastructure. Advanced dataset/model configuration and historical message browsing are not implemented in this UI.
+
+## Sidebar features
+
+- **Create AI Application** (`/space/apps/create`): supply a name, absolute image URL, and optional description; successful creation opens the app editor.
+- **Account settings** (`/account/settings`): open the account menu to save a display name, avatar URL, or a confirmed new password. Email is read-only. The local development account cannot update a backend profile.
+- **Open API** (`/open`): create API keys, edit remarks, activate/deactivate, explicitly reveal masked keys, and confirm deletions. The page includes a chat request example; use an API key rather than your login token.
+
+These routes require sign-in and a running backend. The UI uses `POST /apps`, the `/account/name`, `/account/avatar`, and `/account/password` endpoints, and the paginated `/openapi/api-keys` CRUD endpoints. API mutations are tested with mocked responses; no real account or key is changed by the unit tests.
 
 ## Tech stack
 

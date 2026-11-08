@@ -38,6 +38,21 @@ const router = createRouter({
           component: () => import('@/views/space/apps/ListView.vue'),
         },
         {
+          path: 'space/apps/create',
+          name: 'space-apps-create',
+          component: () => import('@/views/space/apps/CreateView.vue'),
+        },
+        {
+          path: 'account/settings',
+          name: 'account-settings',
+          component: () => import('@/views/account/SettingsView.vue'),
+        },
+        {
+          path: 'open',
+          name: 'open-api',
+          component: () => import('@/views/open/ApiKeysView.vue'),
+        },
+        {
           path: 'store/tools',
           name: 'store-tools-list',
           component: () => import('@/views/store/tools/ListView.vue'),

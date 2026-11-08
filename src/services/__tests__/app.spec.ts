@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { debugApp } from '../app'
+import { createApp, debugApp } from '../app'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -53,5 +53,28 @@ describe('backend debug streaming', () => {
       ),
     )
     await expect(debugApp('example', 'Hello')).rejects.toThrow(/interrupted/i)
+  })
+})
+
+describe('application creation contract', () => {
+  it('posts creation fields and returns the new application ID', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () => new Response(JSON.stringify({ code: 'success', data: { id: 'new-app' } })),
+    )
+    vi.stubGlobal('fetch', fetch)
+    const body = { name: 'Research', icon: 'https://example.com/icon.png', description: '' }
+    await expect(createApp(body)).resolves.toEqual({ id: 'new-app' })
+    expect(fetch.mock.calls[0]?.[0]).toBe('/api/apps')
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('POST')
+    expect(JSON.parse(fetch.mock.calls[0]?.[1]?.body as string)).toEqual(body)
+  })
+  it('rejects successful responses with no created application ID', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ code: 'success', data: {} }))),
+    )
+    await expect(
+      createApp({ name: 'Research', icon: 'https://example.com/icon.png', description: '' }),
+    ).rejects.toThrow(/invalid application ID/)
   })
 })

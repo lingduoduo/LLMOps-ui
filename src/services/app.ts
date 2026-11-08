@@ -67,3 +67,16 @@ export const stopDebugChat = (appId: string, taskId: string) =>
   post<BaseResponse<null>>(
     `/apps/${encodeURIComponent(appId)}/conversations/tasks/${encodeURIComponent(taskId)}/stop`,
   )
+
+export const createApp = async (
+  body: import('@/models/app').CreateAppRequest,
+  signal?: AbortSignal,
+) => {
+  const response = await post<BaseResponse<{ id: string }>>('/apps', { body, signal })
+  if (!response.data || typeof response.data.id !== 'string' || !response.data.id) {
+    throw new Error(
+      'The server returned an invalid application ID. Check your applications before trying again.',
+    )
+  }
+  return response.data
+}
