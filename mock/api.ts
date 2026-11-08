@@ -3,7 +3,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 
 // In-memory stand-in for the LLMOps backend, enabled only by `vite --mode mock`.
-// Log in with any email and the password `password`. Special inputs trigger failures:
+// Log in with any email and the password `password`. Tool marketplace and custom API tool
+// endpoints are served from in-memory data. Special inputs trigger failures:
 //   app search `error` -> HTTP 500 HTML page, `slow` -> 3s delay, `401` -> unauthorized
 //   debug query containing `error` -> error event, `cut` -> stream ends without agent_end
 
@@ -17,6 +18,121 @@ const apps = Array.from({ length: 45 }, (_, index) => ({
   description: `A fake application #${index + 1} served by the mock API.`,
   status: index % 3 === 0 ? 'draft' : 'published',
 }))
+
+// Built-in tool marketplace data.
+const toolCategories = [
+  { category: 'search', name: 'Search', icon: '' },
+  { category: 'image', name: 'Image', icon: '' },
+  { category: 'weather', name: 'Weather', icon: '' },
+]
+const builtinProviders = [
+  {
+    name: 'google',
+    label: 'Google',
+    category: 'search',
+    background: '#E5E7EB',
+    description: 'Search the web with Google and return the top results.',
+    created_at: 1721460914,
+    tools: [
+      {
+        name: 'google_serper',
+        label: 'Google Search',
+        description: 'Run a Google search and return result snippets.',
+        inputs: [{ name: 'query', type: 'str', description: 'Search keywords', required: true }],
+      },
+    ],
+  },
+  {
+    name: 'dalle',
+    label: 'DALL·E',
+    category: 'image',
+    background: '#DBEAFE',
+    description: 'Generate images from a text prompt.',
+    created_at: 1721460914,
+    tools: [
+      {
+        name: 'dalle3',
+        label: 'DALL·E 3',
+        description: 'Create an image from a prompt.',
+        inputs: [
+          { name: 'query', type: 'str', description: 'Image prompt', required: true },
+          { name: 'size', type: 'str', description: 'Image size, e.g. 1024x1024', required: false },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'gaode',
+    label: 'Gaode Weather',
+    category: 'weather',
+    background: '#DCFCE7',
+    description: 'Look up current weather and forecasts for a city.',
+    created_at: 1721460914,
+    tools: [
+      {
+        name: 'gaode_weather',
+        label: 'City Weather',
+        description: 'Get the weather for a city.',
+        inputs: [{ name: 'city', type: 'str', description: 'City name', required: true }],
+      },
+    ],
+  },
+]
+const providerIcon = (name: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><text x="20" y="27" font-size="20" text-anchor="middle" font-family="sans-serif">${name.charAt(0).toUpperCase()}</text></svg>`
+
+// Custom API tools, extracted from the OpenAPI schema the way the backend does.
+type ApiToolProvider = {
+  id: string
+  name: string
+  icon: string
+  description: string
+  openapi_schema: string
+  headers: { key: string; value: string }[]
+  created_at: number
+}
+const parseSchema = (raw: unknown) => {
+  try {
+    const schema = JSON.parse(String(raw))
+    if (!schema?.paths || typeof schema.paths !== 'object') return null
+    const tools = Object.values(schema.paths as Record<string, Record<string, unknown>>).flatMap(
+      (operations) =>
+        Object.entries(operations ?? {}).flatMap(([method, op]) => {
+          const operation = op as { operationId?: string; description?: string } | null
+          return ['get', 'post'].includes(method) && operation?.operationId
+            ? [
+                {
+                  name: operation.operationId,
+                  description: operation.description ?? '',
+                  inputs: [],
+                },
+              ]
+            : []
+        }),
+    )
+    return { description: String(schema.info?.description ?? ''), tools }
+  } catch {
+    return null
+  }
+}
+const weatherSchema = JSON.stringify({
+  openapi: '3.0.0',
+  info: { title: 'Weather', description: 'Look up the weather for a city.' },
+  paths: { '/weather': { get: { operationId: 'getWeather', description: 'Current weather' } } },
+})
+const apiToolProviders: ApiToolProvider[] = Array.from({ length: 25 }, (_, index) => ({
+  id: `api-tool-${index + 1}`,
+  name: `Mock Weather ${index + 1}`,
+  icon: '',
+  description: 'Look up the weather for a city.',
+  openapi_schema: weatherSchema,
+  headers: [],
+  created_at: 1721460914 - index * 3600,
+}))
+const apiToolSummary = (provider: ApiToolProvider) => {
+  const { openapi_schema, ...summary } = provider
+  return { ...summary, tools: parseSchema(openapi_schema)?.tools ?? [] }
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -97,6 +213,12 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
     })
   }
 
+  // Icons load through <img> tags, which carry no bearer token, so they are public.
+  const builtinIcon = url.pathname.match(/^\/builtin-tools\/([^/]+)\/icon$/)
+  if (req.method === 'GET' && builtinIcon) {
+    res.setHeader('Content-Type', 'image/svg+xml')
+    return res.end(providerIcon(decodeURIComponent(builtinIcon[1])))
+  }
   const token = bearerToken(req)
   if (!token) return unauthorized(res)
 
@@ -140,6 +262,79 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
       })
     }
     return ok(res, { content: `You asked: "${query}". This is a mock answer.` })
+  }
+
+  if (route === 'GET /builtin-tools/categories') return ok(res, toolCategories)
+  if (route === 'GET /builtin-tools') return ok(res, builtinProviders)
+
+  if (route === 'GET /api-tools') {
+    const search = (url.searchParams.get('search_word') ?? '').toLowerCase()
+    const page = Number(url.searchParams.get('current_page')) || 1
+    const size = Number(url.searchParams.get('page_size')) || 20
+    const matches = apiToolProviders.filter((p) => p.name.toLowerCase().includes(search))
+    return ok(res, {
+      list: matches.slice((page - 1) * size, page * size).map(apiToolSummary),
+      paginator: {
+        total_page: Math.ceil(matches.length / size),
+        total_record: matches.length,
+        current_page: page,
+        page_size: size,
+      },
+    })
+  }
+  if (route === 'POST /api-tools/validate-openapi-schema') {
+    return parseSchema((await readBody(req)).openapi_schema)
+      ? ok(res)
+      : sendJson(res, 200, { code: 'validate_error', message: 'Invalid OpenAPI schema.', data: {} })
+  }
+  if (route === 'POST /api-tools') {
+    const body = await readBody(req)
+    const parsed = parseSchema(body.openapi_schema)
+    if (!parsed || !body.name) {
+      return sendJson(res, 200, { code: 'validate_error', message: 'Invalid tool.', data: {} })
+    }
+    apiToolProviders.unshift({
+      id: randomUUID(),
+      name: String(body.name),
+      icon: String(body.icon ?? ''),
+      description: parsed.description,
+      openapi_schema: String(body.openapi_schema),
+      headers: (body.headers as ApiToolProvider['headers']) ?? [],
+      created_at: Math.floor(Date.now() / 1000),
+    })
+    return sendJson(res, 200, { code: 'success', message: 'Tool created.', data: {} })
+  }
+  const apiTool = url.pathname.match(/^\/api-tools\/([^/]+?)(\/delete)?$/)
+  if (apiTool) {
+    const index = apiToolProviders.findIndex((p) => p.id === decodeURIComponent(apiTool[1]))
+    if (index === -1) {
+      return sendJson(res, 404, { code: 'not_found', message: 'Tool not found.', data: {} })
+    }
+    const provider = apiToolProviders[index]
+    if (req.method === 'GET' && !apiTool[2]) return ok(res, provider)
+    if (req.method === 'POST' && apiTool[2]) {
+      apiToolProviders.splice(index, 1)
+      return sendJson(res, 200, { code: 'success', message: 'Tool deleted.', data: {} })
+    }
+    if (req.method === 'POST') {
+      const body = await readBody(req)
+      const parsed = parseSchema(body.openapi_schema)
+      if (!parsed) {
+        return sendJson(res, 200, {
+          code: 'validate_error',
+          message: 'Invalid OpenAPI schema.',
+          data: {},
+        })
+      }
+      Object.assign(provider, {
+        name: String(body.name ?? provider.name),
+        icon: String(body.icon ?? ''),
+        description: parsed.description,
+        openapi_schema: String(body.openapi_schema),
+        headers: body.headers ?? [],
+      })
+      return sendJson(res, 200, { code: 'success', message: 'Tool updated.', data: {} })
+    }
   }
 
   const conversation = url.pathname.match(/^\/apps\/([^/]+)\/conversations(\/.*)?$/)
