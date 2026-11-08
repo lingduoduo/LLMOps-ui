@@ -33,6 +33,9 @@ const signIn = () =>
 describe('protected navigation', () => {
   it.each([
     ['/space/apps/create', 'space-apps-create'],
+    ['/space/tools', 'space-tools-list'],
+    ['/space/workflows', 'space-workflows-list'],
+    ['/space/datasets', 'space-datasets-list'],
     ['/account/settings', 'account-settings'],
     ['/open', 'open-api'],
   ])('protects and resolves %s', async (path, name) => {
@@ -72,6 +75,12 @@ describe('protected navigation', () => {
     await router.push('/space/apps/example')
     expect(router.currentRoute.value.path).toBe('/auth/login')
     expect(router.currentRoute.value.query.redirect).toBe('/space/apps/example')
+  })
+
+  it('opens the apps tab for the personal space root', async () => {
+    signIn()
+    await router.push('/space')
+    expect(router.currentRoute.value.name).toBe('space-apps-list')
   })
 
   it('redirects the root URL to home', async () => {
@@ -154,5 +163,7 @@ describe('sidebar destinations', () => {
     expect(new Set(paths).size).toBe(destinations.length)
     expect(router.resolve('/space/apps/create').meta.navigationSection).toBe('space')
     expect(router.resolve('/space/apps/example').meta.navigationSection).toBe('space')
+    for (const tab of ['tools', 'workflows', 'datasets'])
+      expect(router.resolve(`/space/${tab}`).meta.navigationSection).toBe('space')
   })
 })

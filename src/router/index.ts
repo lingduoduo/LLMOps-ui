@@ -36,10 +36,33 @@ const router = createRouter({
           component: () => import('@/views/AboutView.vue'),
         },
         {
-          path: 'space/apps',
-          name: 'space-apps-list',
+          // Personal Space: tabbed lists sharing one header and search box.
+          path: 'space',
           meta: { navigationSection: 'space' },
-          component: () => import('@/views/space/apps/ListView.vue'),
+          component: () => import('@/views/space/SpaceLayoutView.vue'),
+          children: [
+            { path: '', redirect: { name: 'space-apps-list' } },
+            {
+              path: 'apps',
+              name: 'space-apps-list',
+              component: () => import('@/views/space/apps/ListView.vue'),
+            },
+            {
+              path: 'tools',
+              name: 'space-tools-list',
+              component: () => import('@/views/space/tools/ListView.vue'),
+            },
+            {
+              path: 'workflows',
+              name: 'space-workflows-list',
+              component: () => import('@/views/space/workflows/ListView.vue'),
+            },
+            {
+              path: 'datasets',
+              name: 'space-datasets-list',
+              component: () => import('@/views/space/datasets/ListView.vue'),
+            },
+          ],
         },
         {
           path: 'space/apps/create',

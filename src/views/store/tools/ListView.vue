@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { IconCommon, IconUser } from '@arco-design/web-vue/es/icon'
 import { getBuiltinTools, getCategories } from '@/services/builtin-tool'
-import { apiPrefix, typeMap } from '@/config'
+import { apiPrefix } from '@/config'
 import type { BuiltinToolProvider, ToolCategory } from '@/models/builtin-tool'
-import CustomToolsPanel from './CustomToolsPanel.vue'
+import { formatDate } from '@/utils/format'
+import ToolList from '@/components/ToolList.vue'
 
+const router = useRouter()
 const categories = ref<ToolCategory[]>([])
 const providers = ref<BuiltinToolProvider[]>([])
 const loading = ref(false)
@@ -13,7 +16,6 @@ const error = ref('')
 const category = ref('all')
 const search = ref('')
 const selectedProvider = ref<BuiltinToolProvider | null>(null)
-const customTools = ref<InstanceType<typeof CustomToolsPanel>>()
 let activeRequest: AbortController | undefined
 const filterProviders = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -53,17 +55,6 @@ onBeforeUnmount(() => {
   activeRequest?.abort()
   activeRequest = undefined
 })
-const formatDate = (timestamp: number) => {
-  const date = new Date(timestamp * 1000)
-  return Number.isNaN(date.getTime())
-    ? 'Unknown date'
-    : new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(date)
-}
 const providerIcon = (name: string) => `${apiPrefix}/builtin-tools/${encodeURIComponent(name)}/icon`
 </script>
 
@@ -79,8 +70,11 @@ const providerIcon = (name: string) => `${apiPrefix}/builtin-tools/${encodeURICo
           </a-avatar>
           <h1 class="text-lg font-medium text-gray-900">Tool Marketplace</h1>
         </div>
-        <!-- Create button -->
-        <a-button type="primary" class="rounded-lg" @click="customTools?.openCreate()"
+        <!-- Create button: custom tools live in Personal Space, which opens its create dialog. -->
+        <a-button
+          type="primary"
+          class="rounded-lg"
+          @click="router.push({ name: 'space-tools-list', query: { create: 'tool' } })"
           >Create Custom Tool</a-button
         >
       </div>
@@ -171,7 +165,6 @@ const providerIcon = (name: string) => `${apiPrefix}/builtin-tools/${encodeURICo
           />
         </a-col>
       </a-row>
-      <CustomToolsPanel ref="customTools" />
       <!-- Tool details drawer -->
       <a-drawer
         :visible="selectedProvider !== null"
@@ -210,43 +203,7 @@ const providerIcon = (name: string) => `${apiPrefix}/builtin-tools/${encodeURICo
           <!-- Divider -->
           <hr class="my-4" />
           <!-- Provider tools -->
-          <div class="flex flex-col gap-2">
-            <div class="text-xs text-gray-500">
-              Includes {{ selectedProvider.tools.length }} tools
-            </div>
-            <!-- Tool list -->
-            <a-card
-              v-for="tool in selectedProvider.tools"
-              :key="tool.name"
-              class="cursor-pointer flex flex-col rounded-xl"
-            >
-              <!-- Tool name -->
-              <div class="font-bold text-gray-900 mb-2">{{ tool.label }}</div>
-              <!-- Tool description -->
-              <div class="text-gray-500 text-xs">{{ tool.description }}</div>
-              <!-- Tool parameters -->
-              <div v-if="tool.inputs.length > 0" class="">
-                <!-- Divider -->
-                <div class="flex items-center gap-2 my-4">
-                  <div class="text-xs font-bold text-gray-500">Parameters</div>
-                  <hr class="flex-1" />
-                </div>
-                <!-- Parameter list -->
-                <div class="flex flex-col gap-4">
-                  <div v-for="input in tool.inputs" :key="input.name" class="flex flex-col gap-2">
-                    <!-- Parameter name, type, and requirement -->
-                    <div class="flex items-center gap-2 text-xs">
-                      <div class="text-gray-900 font-bold">{{ input.name }}</div>
-                      <div class="text-gray-500">{{ typeMap[input.type] || input.type }}</div>
-                      <div v-if="input.required" class="text-red-700">Required</div>
-                    </div>
-                    <!-- Parameter description -->
-                    <div class="text-xs text-gray-500">{{ input.description }}</div>
-                  </div>
-                </div>
-              </div>
-            </a-card>
-          </div>
+          <ToolList :tools="selectedProvider.tools" />
         </div>
       </a-drawer>
     </div>

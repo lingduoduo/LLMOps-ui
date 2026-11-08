@@ -1,7 +1,8 @@
 import type { BasePaginatorResponse, BaseResponse } from './base'
+import type { ToolInput } from './builtin-tool'
 
 export type ApiToolHeader = { key: string; value: string }
-export type ApiTool = { name: string; description: string }
+export type ApiTool = { name: string; description: string; inputs?: ToolInput[] }
 export type ApiToolProvider = {
   id: string
   name: string

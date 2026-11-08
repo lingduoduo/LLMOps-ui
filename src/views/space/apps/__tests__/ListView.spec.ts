@@ -54,4 +54,34 @@ describe('application entry', () => {
     expect(router.currentRoute.value.path).toBe('/space/apps/example%2Fone')
     wrapper.unmount()
   })
+
+  it('searches with the term from the shared personal space query', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({
+            code: 'success',
+            message: '',
+            data: {
+              list: [],
+              paginator: { current_page: 1, page_size: 20, total_page: 0, total_record: 0 },
+            },
+          }),
+        ),
+    )
+    vi.stubGlobal('fetch', fetch)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/space/apps', component: ListView }],
+    })
+    await router.push('/space/apps?search_word=%20mock%20')
+    const wrapper = mount(ListView, { global: { plugins: [router, createPinia()] } })
+    await flushPromises()
+    expect(String(fetch.mock.calls.at(-1)?.[0])).toContain('search_word=mock')
+    await router.push('/space/apps?search_word=other')
+    await flushPromises()
+    expect(String(fetch.mock.calls.at(-1)?.[0])).toContain('search_word=other')
+    expect(wrapper.text()).toContain('No applications found.')
+    wrapper.unmount()
+  })
 })
