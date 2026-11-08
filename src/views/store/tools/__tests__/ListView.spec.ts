@@ -20,13 +20,33 @@ const provider = (name: string, category: string) => ({
   background: '#fff',
   description: `${name} description`,
   created_at: 1700000000,
-  tools: [{ name: 'lookup', label: 'Lookup', description: 'Find information', inputs: [] }],
+  tools: [
+    {
+      name: 'lookup',
+      label: 'Lookup',
+      description: 'Find information',
+      inputs: [{ name: 'query', type: 'str', description: 'Search query', required: true }],
+    },
+  ],
 })
-function render() {
+async function render() {
   vi.stubGlobal(
     'matchMedia',
     vi.fn(() => ({ matches: false, addListener: vi.fn(), removeListener: vi.fn() })),
   )
+  vi.mocked(getCategories).mockResolvedValue({
+    code: 'success',
+    message: '',
+    data: [
+      { category: 'search', name: 'Search', icon: '' },
+      { category: 'other', name: 'Other', icon: '' },
+    ],
+  })
+  vi.mocked(getBuiltinTools).mockResolvedValue({
+    code: 'success',
+    message: '',
+    data: [provider('Alpha', 'search'), provider('Beta', 'other')],
+  })
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/:pathMatch(.*)*', name: 'space-tools-list', component: ListView }],
@@ -35,36 +55,88 @@ function render() {
     global: { plugins: [ArcoVue, router] },
     attachTo: document.body,
   })
+  await flushPromises()
   return wrapper
 }
+const cardTitles = (view: VueWrapper) =>
+  view.findAll('.arco-col .arco-card .font-bold').map((title) => title.text())
+
 describe('tool marketplace', () => {
-  it('filters case-insensitively and keeps the selected provider stable when filters change', async () => {
-    vi.mocked(getCategories).mockResolvedValue({ code: 'success', message: '', data: [] })
-    vi.mocked(getBuiltinTools).mockResolvedValue({
-      code: 'success',
-      message: '',
-      data: [provider('Alpha', 'search'), provider('Beta', 'other')],
-    })
-    const view = render()
-    await flushPromises()
-    await view.get('button[aria-label="View Alpha tools"]').trigger('click')
-    await view.get('input[placeholder="Search tools by name"]').setValue('  BETA ')
-    expect(view.findAll('[data-provider]')).toHaveLength(1)
-    expect(view.get('[data-provider]').attributes('data-provider')).toBe('Beta')
-    expect(document.body.textContent).toContain('Alpha description')
-    expect(document.body.textContent).toContain('Lookup')
+  it('filters providers by category and case-insensitive search', async () => {
+    const view = await render()
+    expect(cardTitles(view)).toEqual(['Alpha', 'Beta'])
+    expect(view.text()).toContain('LLMOps · Published')
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Other')!
+      .trigger('click')
+    expect(cardTitles(view)).toEqual(['Beta'])
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'All')!
+      .trigger('click')
+    await view.get('input[placeholder="Enter a tool name"]').setValue('  ALPHA ')
+    expect(cardTitles(view)).toEqual(['Alpha'])
+    await view.get('input[placeholder="Enter a tool name"]').setValue('missing')
+    expect(view.text()).toContain('No built-in tools available')
   })
-  it('shows load failures and supports retry without duplicate providers', async () => {
+
+  it('opens the provider drawer with its tools and parameters', async () => {
+    const view = await render()
+    await view.findAll('.arco-col .arco-card')[1]!.trigger('click')
+    await flushPromises()
+    const drawer = document.body.querySelector('.arco-drawer')!.textContent
+    expect(drawer).toContain('Tool Details')
+    expect(drawer).toContain('Beta description')
+    expect(drawer).toContain('Includes 1 tools')
+    expect(drawer).toContain('Search query')
+    expect(drawer).toContain('String')
+    expect(drawer).toContain('Required')
+  })
+
+  it('opens a provider from the keyboard', async () => {
+    const view = await render()
+    const card = view.get('[aria-label="View Alpha tools"]')
+    expect(card.attributes('tabindex')).toBe('0')
+    await card.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(document.body.querySelector('.arco-drawer')!.textContent).toContain('Alpha description')
+  })
+
+  it('shows load failures and retries without duplicating providers', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addListener: vi.fn(), removeListener: vi.fn() })),
+    )
     vi.mocked(getCategories).mockResolvedValue({ code: 'success', message: '', data: [] })
     vi.mocked(getBuiltinTools)
       .mockRejectedValueOnce(new Error('Tools unavailable'))
       .mockResolvedValue({ code: 'success', message: '', data: [provider('Alpha', 'search')] })
-    const view = render()
+    wrapper = mount(ListView, {
+      global: { plugins: [ArcoVue, createRouter({ history: createMemoryHistory(), routes: [] })] },
+    })
     await flushPromises()
-    expect(view.get('[role="alert"]').text()).toContain('Tools unavailable')
-    await view.get('button[aria-label="Retry loading tools"]').trigger('click')
+    expect(wrapper.get('[role="alert"]').text()).toContain('Tools unavailable')
+    expect(wrapper.text()).not.toContain('No built-in tools available')
+    await wrapper.get('button[aria-label="Retry loading tools"]').trigger('click')
     await flushPromises()
-    expect(view.findAll('[data-provider]')).toHaveLength(1)
-    expect(view.find('[role="alert"]').exists()).toBe(false)
+    expect(cardTitles(wrapper)).toEqual(['Alpha'])
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('cancels the request in flight when leaving the page', async () => {
+    const signals: AbortSignal[] = []
+    vi.mocked(getCategories).mockImplementation((signal) => {
+      signals.push(signal!)
+      return new Promise(() => {})
+    })
+    vi.mocked(getBuiltinTools).mockImplementation(() => new Promise(() => {}))
+    wrapper = mount(ListView, {
+      global: { plugins: [ArcoVue, createRouter({ history: createMemoryHistory(), routes: [] })] },
+    })
+    expect(signals[0]!.aborted).toBe(false)
+    wrapper.unmount()
+    wrapper = undefined
+    expect(signals[0]!.aborted).toBe(true)
   })
 })

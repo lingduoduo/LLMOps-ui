@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import ArcoVue from '@arco-design/web-vue'
+import { createPinia } from 'pinia'
 import ListView from '../ListView.vue'
 import {
   createApiToolProvider,
@@ -63,7 +64,10 @@ async function render(path = '/space/tools') {
     routes: [{ path: '/space/tools', name: 'space-tools-list', component: ListView }],
   })
   await router.push(path)
-  wrapper = mount(ListView, { global: { plugins: [ArcoVue, router] }, attachTo: document.body })
+  wrapper = mount(ListView, {
+    global: { plugins: [ArcoVue, router, createPinia()] },
+    attachTo: document.body,
+  })
   await flushPromises()
   return wrapper
 }
@@ -95,6 +99,7 @@ describe('personal space tools', () => {
       ['a', 'b'],
     )
     expect(view.text()).toContain('All tools loaded')
+    expect(view.get('[data-provider="a"]').text()).toContain('You · Edited')
     await router.push('/space/tools?search_word=sun')
     await flushPromises()
     expect(getApiToolProvidersWithPage).toHaveBeenLastCalledWith(1, 20, 'sun')
