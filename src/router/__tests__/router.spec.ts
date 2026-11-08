@@ -30,6 +30,18 @@ const signIn = () =>
   setCredential({ access_token: 'test-token', expire_at: Math.floor(Date.now() / 1000) + 3600 })
 
 describe('protected navigation', () => {
+  it.each([
+    ['/space/apps/create', 'space-apps-create'],
+    ['/account/settings', 'account-settings'],
+    ['/open', 'open-api'],
+  ])('protects and resolves %s', async (path, name) => {
+    await router.push(path)
+    expect(router.currentRoute.value.name).toBe('auth-login')
+    expect(router.currentRoute.value.query.redirect).toBe(path)
+    signIn()
+    await router.push(path)
+    expect(router.currentRoute.value.name).toBe(name)
+  })
   it('protects the tool marketplace and resolves it after sign-in', async () => {
     await router.push('/store/tools')
     expect(router.currentRoute.value.name).toBe('auth-login')

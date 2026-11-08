@@ -13,3 +13,9 @@ export type AppSummary = {
 }
 
 export type AppListResponse = import('./base').BasePaginatorResponse<AppSummary>
+
+export type CreateAppRequest = {
+  name: string
+  icon: string
+  description: string
+}

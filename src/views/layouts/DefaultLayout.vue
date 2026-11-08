@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Avatar as AAvatar } from '@arco-design/web-vue'
-import { IconPoweroff } from '@arco-design/web-vue/es/icon'
+import { IconPlus, IconPoweroff, IconSettings } from '@arco-design/web-vue/es/icon'
 import IconHome from '@/components/icons/IconHome.vue'
 import IconHomeFull from '@/components/icons/IconHomeFull.vue'
 import IconSpace from '@/components/icons/IconSpace.vue'
@@ -11,6 +11,8 @@ import IconApp from '@/components/icons/IconApp.vue'
 import IconAppFull from '@/components/icons/IconAppFull.vue'
 import IconTool from '@/components/icons/IconTool.vue'
 import IconToolFull from '@/components/icons/IconToolFull.vue'
+import IconOpenApi from '@/components/icons/IconOpenApi.vue'
+import IconOpenApiFull from '@/components/icons/IconOpenApiFull.vue'
 import { logout } from '@/services/auth'
 import { useAccountStore } from '@/stores/account'
 import { clearCredential, SESSION_CLEARED_EVENT } from '@/utils/auth'
@@ -36,6 +38,7 @@ const navigationGroups = [
     items: [
       { to: '/store/apps', label: 'App Marketplace', icon: IconApp, activeIcon: IconAppFull },
       { to: '/store/tools', label: 'Tool Marketplace', icon: IconTool, activeIcon: IconToolFull },
+      { to: '/open', label: 'Open API', icon: IconOpenApi, activeIcon: IconOpenApiFull },
     ],
   },
 ]
@@ -82,13 +85,19 @@ const signOut = async () => {
       class="border-b border-gray-200 bg-gray-50 p-2 md:w-60 md:shrink-0 md:border-b-0 md:border-r"
     >
       <div
-        class="flex h-full flex-col rounded-lg bg-white px-3 py-5 md:sticky md:top-2 md:h-[calc(100dvh-1rem)]"
+        class="flex h-full flex-col rounded-lg bg-white px-3 py-5 md:sticky md:top-2 md:h-[calc(100dvh-1rem)] md:overflow-y-auto"
       >
         <router-link
           to="/home"
           class="mb-6 rounded px-2 text-lg font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-blue-700"
           >LLMOps UI</router-link
         >
+        <router-link
+          to="/space/apps/create"
+          class="mb-5 flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+        >
+          <icon-plus aria-hidden="true" />Create AI Application
+        </router-link>
         <nav aria-label="Main navigation" class="flex flex-col gap-5">
           <div v-for="group in navigationGroups" :key="group.label">
             <p class="mb-2 px-2 text-xs font-medium text-gray-500">{{ group.label }}</p>
@@ -119,40 +128,55 @@ const signOut = async () => {
           aria-label="Signed-in account"
           class="mt-6 border-t border-gray-100 pt-4 md:mt-auto"
         >
-          <div class="flex min-w-0 items-center gap-2 px-1">
-            <a-avatar
-              :size="32"
-              :image-url="accountStore.account?.avatar || undefined"
-              class="shrink-0 bg-blue-700 text-sm"
-              aria-label="Your avatar"
-              >{{ accountInitial }}</a-avatar
+          <details class="group relative">
+            <summary
+              aria-label="Account menu"
+              class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-lg px-1 py-2 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-blue-700"
             >
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium" :title="accountStore.account?.name">
-                {{ accountStore.account?.name || 'Your account' }}
-              </p>
-              <p
-                v-if="accountStore.account?.email"
-                class="truncate text-xs text-gray-500"
-                :title="accountStore.account.email"
+              <a-avatar
+                :size="32"
+                :image-url="accountStore.account?.avatar || undefined"
+                class="shrink-0 bg-blue-700 text-sm"
+                aria-label="Your avatar"
+                >{{ accountInitial }}</a-avatar
               >
-                {{ accountStore.account.email }}
-              </p>
-              <p v-if="isLoadingAccount" role="status" class="text-xs text-gray-500">
-                Loading account…
-              </p>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium" :title="accountStore.account?.name">
+                  {{ accountStore.account?.name || 'Your account' }}
+                </p>
+                <p
+                  v-if="accountStore.account?.email"
+                  class="truncate text-xs text-gray-500"
+                  :title="accountStore.account.email"
+                >
+                  {{ accountStore.account.email }}
+                </p>
+                <p v-if="isLoadingAccount" role="status" class="text-xs text-gray-500">
+                  Loading account…
+                </p>
+              </div>
+            </summary>
+            <div
+              class="rounded-lg border border-gray-200 bg-white p-1 shadow-sm md:absolute md:bottom-full md:left-0 md:mb-2 md:w-full"
+            >
+              <router-link
+                to="/account/settings"
+                class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-700"
+              >
+                <icon-settings aria-hidden="true" />Account settings
+              </router-link>
+              <button
+                type="button"
+                aria-label="Sign out"
+                :disabled="isLoggingOut"
+                class="mt-3 flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-sm text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-50"
+                @click="signOut"
+              >
+                <icon-poweroff aria-hidden="true" />
+                {{ isLoggingOut ? 'Signing out…' : 'Sign out' }}
+              </button>
             </div>
-          </div>
-          <button
-            type="button"
-            aria-label="Sign out"
-            :disabled="isLoggingOut"
-            class="mt-3 flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-sm text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-700 disabled:opacity-50"
-            @click="signOut"
-          >
-            <icon-poweroff aria-hidden="true" />
-            {{ isLoggingOut ? 'Signing out…' : 'Sign out' }}
-          </button>
+          </details>
         </section>
       </div>
     </aside>

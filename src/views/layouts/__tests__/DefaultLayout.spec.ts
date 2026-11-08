@@ -40,7 +40,9 @@ describe('default sidebar layout', () => {
     expect(view.findAll('nav[aria-label="Main navigation"]')).toHaveLength(1)
     expect(view.get('a[href="/store/tools"]').attributes('aria-current')).toBe('page')
     expect(view.text().match(/Page content/g)).toHaveLength(1)
-    expect(view.find('a[href="/open"]').exists()).toBe(false)
+    expect(view.get('a[href="/open"]').text()).toBe('Open API')
+    expect(view.get('a[href="/space/apps/create"]').text()).toContain('Create AI Application')
+    expect(view.get('a[href="/account/settings"]').text()).toContain('Account settings')
     expect(load).not.toHaveBeenCalled()
   })
   it('clears local session and account even when logout fails', async () => {

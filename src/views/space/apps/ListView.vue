@@ -56,7 +56,14 @@ const openApp = () => {
 
 <template>
   <main class="max-w-2xl mx-auto px-6 py-12">
-    <h1 class="text-2xl font-semibold mb-4">Applications</h1>
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h1 class="text-2xl font-semibold">Applications</h1>
+      <router-link
+        to="/space/apps/create"
+        class="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white"
+        >Create AI Application</router-link
+      >
+    </div>
     <p class="text-gray-600 mb-6">
       Select an application from your account, or open it directly by ID.
     </p>
