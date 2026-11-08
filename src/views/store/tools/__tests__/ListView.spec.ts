@@ -65,7 +65,7 @@ describe('tool marketplace', () => {
   it('filters providers by category and case-insensitive search', async () => {
     const view = await render()
     expect(cardTitles(view)).toEqual(['Alpha', 'Beta'])
-    expect(view.text()).toContain('LLMOps · Published')
+    expect(view.text()).toMatch(/LLMOps · Published\s*\d{2}-\d{2} \d{2}:\d{2}/)
     await view
       .findAll('button')
       .find((button) => button.text() === 'Other')!

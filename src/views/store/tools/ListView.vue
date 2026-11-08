@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { getBuiltinTools, getCategories } from '@/services/builtin-tool'
 import { apiPrefix, typeMap } from '@/config'
 import type { BuiltinToolProvider, ToolCategory } from '@/models/builtin-tool'
-import { formatMonthDayTime } from '@/utils/format'
+import moment from 'moment'
 
 // Declare variables
 const router = useRouter()
@@ -67,7 +67,7 @@ onBeforeUnmount(() => {
   <a-spin :loading="loading" class="block h-full w-full">
     <div class="p-6 flex flex-col">
       <!-- Top title + create button -->
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <!-- Left title -->
         <div class="flex items-center gap-2">
           <a-avatar :size="32" class="bg-blue-700">
@@ -84,9 +84,9 @@ onBeforeUnmount(() => {
         >
       </div>
       <!-- Tool categories + search box -->
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <!-- Left categories -->
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <a-button
             :type="category === 'all' ? 'secondary' : 'text'"
             class="rounded-lg !text-gray-700 px-3"
@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
         <a-input-search
           v-model="search_word"
           placeholder="Enter a tool name"
-          class="w-[240px] bg-white rounded-lg border-gray-300"
+          class="w-full sm:w-[240px] bg-white rounded-lg border-gray-300"
         />
       </div>
       <!-- Load error with retry -->
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
               </a-avatar>
               <div class="text-xs text-gray-400">
                 LLMOps · Published
-                {{ formatMonthDayTime(provider.created_at) }}
+                {{ moment.unix(provider.created_at).format('MM-DD HH:mm') }}
               </div>
             </div>
           </a-card>

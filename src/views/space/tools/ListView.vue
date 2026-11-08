@@ -11,7 +11,7 @@ import {
   validateOpenAPISchema,
 } from '@/services/api-tool'
 import type { ApiToolHeader, ApiToolProvider } from '@/models/api-tool'
-import { formatDate } from '@/utils/format'
+import moment from 'moment'
 import ToolList from '@/components/ToolList.vue'
 import { useAccountStore } from '@/stores/account'
 
@@ -40,6 +40,9 @@ const confirmingDelete = ref(false)
 const form = reactive({ icon: '', name: '', openapi_schema: '', headers: [] as ApiToolHeader[] })
 
 let requestId = 0
+// Sentinel below the grid; scrolling it into view loads the next page.
+const sentinel = ref<HTMLElement>()
+let observer: IntersectionObserver | undefined
 let disposed = false
 const message = (cause: unknown) =>
   cause instanceof Error ? cause.message : 'The request failed. Please try again.'
@@ -63,6 +66,12 @@ const loadPage = async (reset = false) => {
     providers.value = reset ? list : [...providers.value, ...list]
     page.value = paginator.current_page
     totalPages.value = paginator.total_page
+    // Re-observe so a sentinel that is still on screen (page shorter than the viewport)
+    // triggers the next page instead of waiting for a scroll that can never happen.
+    if (observer && sentinel.value) {
+      observer.unobserve(sentinel.value)
+      observer.observe(sentinel.value)
+    }
   } catch (cause) {
     if (id === requestId && !disposed) listError.value = message(cause)
   } finally {
@@ -75,8 +84,6 @@ const reload = () => {
 }
 
 // Fetch the next page when the sentinel below the grid scrolls into view.
-const sentinel = ref<HTMLElement>()
-let observer: IntersectionObserver | undefined
 const canObserve = typeof IntersectionObserver !== 'undefined'
 onMounted(() => {
   void reload()
@@ -273,7 +280,7 @@ const remove = async () => {
               </a-avatar>
               <div class="text-xs text-gray-400">
                 {{ accountStore.account?.name || 'You' }} · Edited
-                {{ formatDate(provider.created_at) }}
+                {{ moment.unix(provider.created_at).format('MM-DD HH:mm') }}
               </div>
             </div>
           </button>
