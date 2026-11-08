@@ -13,10 +13,12 @@ import {
 import type { ApiToolHeader, ApiToolProvider } from '@/models/api-tool'
 import { formatDate } from '@/utils/format'
 import ToolList from '@/components/ToolList.vue'
+import { useAccountStore } from '@/stores/account'
 
 const PAGE_SIZE = 20
 const route = useRoute()
 const router = useRouter()
+const accountStore = useAccountStore()
 
 // Provider list, loaded page by page as the user scrolls.
 const providers = ref<ApiToolProvider[]>([])
@@ -269,7 +271,10 @@ const remove = async () => {
               <a-avatar :size="18" class="bg-blue-700">
                 <icon-user />
               </a-avatar>
-              <div class="text-xs text-gray-400">Edited {{ formatDate(provider.created_at) }}</div>
+              <div class="text-xs text-gray-400">
+                {{ accountStore.account?.name || 'You' }} · Edited
+                {{ formatDate(provider.created_at) }}
+              </div>
             </div>
           </button>
         </a-card>
