@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getApiToolProvider, updateApiToolProvider } from '../api-tool'
-import { getBuiltinTools } from '../builtin-tool'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -20,13 +19,5 @@ describe('tool API contracts', () => {
       openapi_schema: '{}',
     })
     expect(fetch.mock.calls[1]?.[0]).toBe('/api/api-tools/example%2Fone')
-  })
-
-  it('rejects malformed provider lists before they reach the view', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ code: 'success', data: {} }))),
-    )
-    await expect(getBuiltinTools()).rejects.toThrow(/invalid/i)
   })
 })

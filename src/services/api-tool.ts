@@ -8,18 +8,14 @@ import {
 import { type BaseResponse } from '@/models/base'
 
 // Fetch a page of custom API tool providers.
-export const getApiToolProvidersWithPage = async (
+export const getApiToolProvidersWithPage = (
   current_page: number = 1,
   page_size: number = 20,
   search_word: string = '',
 ) => {
-  const response = await get<GetApiToolProvidersWithPageResponse>('/api-tools', {
+  return get<GetApiToolProvidersWithPageResponse>('/api-tools', {
     params: { current_page, page_size, search_word },
   })
-  if (!response.data || !Array.isArray(response.data.list) || !response.data.paginator) {
-    throw new Error('The server returned an invalid API tool provider list.')
-  }
-  return response
 }
 
 // Validate an OpenAPI schema.

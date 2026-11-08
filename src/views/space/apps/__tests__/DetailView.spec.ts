@@ -4,10 +4,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import DetailView from '../DetailView.vue'
 
 function reply(content: string) {
-  return new Response(
-    `event: agent_message\ndata:${JSON.stringify({ event: 'agent_message', answer: content })}\n\nevent: agent_end\ndata:{"event":"agent_end"}\n\n`,
-    { headers: { 'Content-Type': 'text/event-stream' } },
-  )
+  return new Response(JSON.stringify({ code: 'success', message: '', data: { content } }))
 }
 
 let wrapper: VueWrapper | undefined

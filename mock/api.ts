@@ -130,6 +130,18 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
     })
   }
 
+  if (req.method === 'POST' && /^\/apps\/[^/]+\/debug$/.test(url.pathname)) {
+    const query = String((await readBody(req)).query ?? '')
+    if (query.includes('error')) {
+      return sendJson(res, 200, {
+        code: 'fail',
+        message: 'The mock model failed on purpose.',
+        data: null,
+      })
+    }
+    return ok(res, { content: `You asked: "${query}". This is a mock answer.` })
+  }
+
   const conversation = url.pathname.match(/^\/apps\/([^/]+)\/conversations(\/.*)?$/)
   if (req.method === 'POST' && conversation) {
     const [, , action = ''] = conversation
