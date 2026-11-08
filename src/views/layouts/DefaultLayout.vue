@@ -38,6 +38,7 @@ const signOut = async () => {
     <nav aria-label="Main navigation" class="flex flex-wrap items-center gap-6 border-b px-6 py-4">
       <router-link to="/home" class="font-semibold">LLMOps UI</router-link>
       <router-link to="/space/apps" class="text-blue-700 underline">Applications</router-link>
+      <router-link to="/store/tools" class="text-blue-700 underline">Tool Marketplace</router-link>
       <span class="text-sm text-gray-500 ml-auto">{{ accountStore.account?.name }}</span>
       <button
         type="button"

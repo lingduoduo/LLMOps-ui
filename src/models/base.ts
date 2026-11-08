@@ -1,18 +1,17 @@
-// Basic response data format
+// Base response format.
 export type BaseResponse<T> = {
-  code: string // Response status code (e.g., success, fail)
-  message: string // Description message for the response
-  data: T // Generic data payload
+  code: string
+  message: string
+  data: T
 }
 
-// Basic paginated response data format
+// Base paginated response format.
 export type BasePaginatorResponse<T> = BaseResponse<{
-  list: Array<T> // List of data items
+  list: Array<T>
   paginator: {
-    // Pagination details
-    total_page: number // Total number of pages
-    total_record: number // Total number of records
-    current_page: number // Current page number
-    page_size: number // Number of items per page
+    total_page: number
+    total_record: number
+    current_page: number
+    page_size: number
   }
 }>

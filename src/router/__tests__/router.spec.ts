@@ -30,6 +30,16 @@ const signIn = () =>
   setCredential({ access_token: 'test-token', expire_at: Math.floor(Date.now() / 1000) + 3600 })
 
 describe('protected navigation', () => {
+  it('protects the tool marketplace and resolves it after sign-in', async () => {
+    await router.push('/store/tools')
+    expect(router.currentRoute.value.name).toBe('auth-login')
+    expect(router.currentRoute.value.query.redirect).toBe('/store/tools')
+    signIn()
+    await router.push('/store/tools')
+    expect(router.currentRoute.value.name).toBe('store-tools-list')
+    await router.push('/store/apps')
+    expect(router.currentRoute.value.name).toBe('store-apps-list')
+  })
   it('allows protected navigation with an unexpired backend credential', async () => {
     setCredential({ access_token: 'test-token', expire_at: Math.floor(Date.now() / 1000) + 3600 })
     await router.push('/space/apps')
