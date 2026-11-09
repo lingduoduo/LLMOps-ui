@@ -12,7 +12,7 @@ import {
 } from '@/services/api-tool'
 import type { GetApiToolProvidersWithPageResponse } from '@/models/api-tool'
 import moment from 'moment'
-import { typeMap } from '@/config'
+import ToolList from '@/components/ToolList.vue'
 import { pluralize } from '@/utils/format'
 import { useAccountStore } from '@/stores/account'
 
@@ -274,47 +274,37 @@ const remove = async () => {
     <!-- Provider cards -->
     <a-row :gutter="[20, 20]">
       <a-col v-for="provider in providers" :key="provider.id" :xs="24" :sm="12" :lg="6">
-        <!-- Keyboard accessible: focus with Tab, open with Enter or Space -->
-        <a-card
-          hoverable
-          role="button"
-          tabindex="0"
-          :aria-label="`View ${provider.name} tools`"
-          :data-provider="provider.id"
-          class="cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-blue-700"
-          @click="selectedProvider = provider"
-          @keydown.enter.prevent="selectedProvider = provider"
-          @keydown.space.prevent="selectedProvider = provider"
-        >
-          <!-- Top provider name -->
-          <div class="flex items-center gap-3 mb-3">
-            <!-- Left icon -->
-            <a-avatar :size="40" shape="square">
-              <img v-if="provider.icon" :src="provider.icon" :alt="provider.name" />
-              <template v-else>{{ provider.name.charAt(0).toUpperCase() }}</template>
-            </a-avatar>
-            <!-- Right tool information -->
-            <div class="flex flex-col">
-              <div class="text-base text-gray-900 font-bold">{{ provider.name }}</div>
-              <div class="text-xs text-gray-500 line-clamp-1">
-                Provider {{ provider.name }} · {{ pluralize(provider.tools.length, 'tool') }}
+        <a-card hoverable class="rounded-lg" :data-provider="provider.id">
+          <button
+            type="button"
+            class="w-full text-left cursor-pointer"
+            :aria-label="`View ${provider.name} tools`"
+            @click="selectedProvider = provider"
+          >
+            <div class="flex items-center gap-3 mb-3">
+              <a-avatar :size="40" shape="square" :image-url="provider.icon || undefined">
+                {{ provider.name.charAt(0).toUpperCase() }}
+              </a-avatar>
+              <div class="flex flex-col min-w-0">
+                <div class="text-base text-gray-900 font-bold truncate">{{ provider.name }}</div>
+                <div class="text-xs text-gray-500 line-clamp-1">
+                  Provider {{ provider.name }} · {{ pluralize(provider.tools.length, 'tool') }}
+                </div>
               </div>
             </div>
-          </div>
-          <!-- Provider description -->
-          <div class="leading-[18px] text-gray-500 h-[72px] line-clamp-4 mb-2">
-            {{ provider.description }}
-          </div>
-          <!-- Provider edit information -->
-          <div class="flex items-center gap-1.5">
-            <a-avatar :size="18" class="bg-blue-700">
-              <icon-user />
-            </a-avatar>
-            <div class="text-xs text-gray-400">
-              {{ accountStore.account?.name || 'You' }} · Edited
-              {{ moment.unix(provider.created_at).format('MM-DD HH:mm') }}
+            <div class="leading-[18px] text-gray-500 h-[72px] line-clamp-4 mb-2">
+              {{ provider.description }}
             </div>
-          </div>
+            <div class="flex items-center gap-1.5">
+              <a-avatar :size="18" class="bg-blue-700">
+                <icon-user />
+              </a-avatar>
+              <div class="text-xs text-gray-400">
+                {{ accountStore.account?.name || 'You' }} · Edited
+                {{ moment.unix(provider.created_at).format('MM-DD HH:mm') }}
+              </div>
+            </div>
+          </button>
         </a-card>
       </a-col>
       <a-col v-if="!loading && !listError && providers.length === 0" :span="24">
@@ -350,81 +340,34 @@ const remove = async () => {
       :drawer-style="{ background: '#F9FAFB' }"
       @cancel="selectedProvider = null"
     >
-      <!-- Outer container: hidden when no provider is selected -->
       <div v-if="selectedProvider">
-        <!-- Top provider name -->
         <div class="flex items-center gap-3 mb-3">
-          <!-- Left icon -->
-          <a-avatar :size="40" shape="square">
-            <img
-              v-if="selectedProvider.icon"
-              :src="selectedProvider.icon"
-              :alt="selectedProvider.name"
-            />
-            <template v-else>{{ selectedProvider.name.charAt(0).toUpperCase() }}</template>
+          <a-avatar :size="40" shape="square" :image-url="selectedProvider.icon || undefined">
+            {{ selectedProvider.name.charAt(0).toUpperCase() }}
           </a-avatar>
-          <!-- Right tool information -->
-          <div class="flex flex-col">
-            <div class="text-base text-gray-900 font-bold">{{ selectedProvider.name }}</div>
+          <div class="flex flex-col min-w-0">
+            <div class="text-base text-gray-900 font-bold truncate">
+              {{ selectedProvider.name }}
+            </div>
             <div class="text-xs text-gray-500 line-clamp-1">
               Provider {{ selectedProvider.name }} ·
               {{ pluralize(selectedProvider.tools.length, 'tool') }}
             </div>
           </div>
         </div>
-        <!-- Provider description -->
-        <div class="leading-[18px] text-gray-500 mb-2">{{ selectedProvider.description }}</div>
-        <!-- Edit button: custom tools can be edited or deleted -->
+        <div class="leading-[18px] text-gray-500 mb-4">{{ selectedProvider.description }}</div>
         <a-button
           :loading="loadingDetails"
           type="dashed"
           long
-          class="mt-2 rounded-lg"
+          class="mb-2 rounded-lg"
           @click="openEdit"
         >
           <template #icon><icon-settings /></template>
           Edit Tool
         </a-button>
-        <!-- Divider -->
         <hr class="my-4 border-gray-200" />
-        <!-- Provider tools -->
-        <div class="flex flex-col gap-2">
-          <div class="text-xs text-gray-500">
-            Includes {{ pluralize(selectedProvider.tools.length, 'tool') }}
-          </div>
-          <!-- Tool list -->
-          <a-card
-            v-for="tool in selectedProvider.tools"
-            :key="tool.name"
-            class="cursor-pointer flex flex-col rounded-xl"
-          >
-            <!-- Tool name -->
-            <div class="font-bold text-gray-900 mb-2">{{ tool.name }}</div>
-            <!-- Tool description -->
-            <div class="text-gray-500 text-xs">{{ tool.description }}</div>
-            <!-- Tool parameters -->
-            <div v-if="tool.inputs.length > 0" class="">
-              <!-- Divider -->
-              <div class="flex items-center gap-2 my-4">
-                <div class="text-xs font-bold text-gray-500">Parameters</div>
-                <hr class="flex-1 border-gray-200" />
-              </div>
-              <!-- Parameter list -->
-              <div class="flex flex-col gap-4">
-                <div v-for="input in tool.inputs" :key="input.name" class="flex flex-col gap-2">
-                  <!-- Upper part -->
-                  <div class="flex items-center gap-2 text-xs">
-                    <div class="text-gray-900 font-bold">{{ input.name }}</div>
-                    <div class="text-gray-500">{{ typeMap[input.type] || input.type }}</div>
-                    <div v-if="input.required" class="text-red-700">Required</div>
-                  </div>
-                  <!-- Parameter description -->
-                  <div class="text-xs text-gray-500">{{ input.description }}</div>
-                </div>
-              </div>
-            </div>
-          </a-card>
-        </div>
+        <ToolList :tools="selectedProvider.tools" />
       </div>
     </a-drawer>
 
