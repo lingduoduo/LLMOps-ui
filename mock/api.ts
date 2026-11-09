@@ -22,8 +22,7 @@ const apps = Array.from({ length: 45 }, (_, index) => ({
 
 // Built-in tool marketplace data, mirroring LLMOps-Flask-Service
 // internal/core/tools/builtin_tools (categories.yaml, providers.yaml, each tool's YAML,
-// and the inputs BuiltinToolService derives from the tool's args_schema). The backend's
-// gaode provider is left out on purpose.
+// and the inputs BuiltinToolService derives from the tool's args_schema).
 const toolCategories = [
   { category: 'search', name: 'Search', icon: '' },
   { category: 'image', name: 'Image', icon: '' },
@@ -39,6 +38,7 @@ const builtinProviders = [
     name: 'google',
     label: 'Google',
     description: 'Google service provider, covering Google Search and other tools.',
+    icon: 'icon.png',
     background: '#E5E7EB',
     category: 'search',
     created_at: 1722498386,
@@ -57,6 +57,7 @@ const builtinProviders = [
     name: 'time',
     label: 'Time',
     description: 'A tool for obtaining the current time.',
+    icon: 'icon.svg',
     background: '#E5E7EB',
     category: 'tool',
     created_at: 1722498386,
@@ -74,6 +75,7 @@ const builtinProviders = [
     name: 'duckduckgo',
     label: 'DuckDuckGo',
     description: 'A privacy-focused search engine.',
+    icon: 'icon.svg',
     background: '#FFFFFF',
     category: 'search',
     created_at: 1722498386,
@@ -91,6 +93,7 @@ const builtinProviders = [
     name: 'dalle',
     label: 'DALL·E',
     description: 'DALL·E is a text-to-image generation tool.',
+    icon: 'icon.png',
     background: '#E5E7EB',
     category: 'image',
     created_at: 1722498386,
@@ -133,6 +136,7 @@ const builtinProviders = [
     label: 'Wikipedia',
     description:
       'Wikipedia is a free online encyclopedia created and edited by volunteers around the world.',
+    icon: 'icon.svg',
     background: '#FFFFFF',
     category: 'other',
     created_at: 1722498386,
@@ -147,24 +151,19 @@ const builtinProviders = [
     ],
   },
 ]
-// Each provider's icon file, copied from the backend's providers/<name>/_asset folder and
-// served the way BuiltinToolService.get_provider_icon does.
-const providerIcons: Record<string, string> = {
-  google: 'icon.png',
-  time: 'icon.svg',
-  duckduckgo: 'icon.svg',
-  dalle: 'icon.png',
-  wikipedia: 'icon.svg',
-}
+// Icon files are copied from the backend's providers/<name>/_asset folders and served the
+// way BuiltinToolService.get_provider_icon does; like the backend, the provider list itself
+// leaves the icon field out.
 const iconMimeTypes: Record<string, string> = { png: 'image/png', svg: 'image/svg+xml' }
 const providerIcon = (name: string) => {
-  const file = Object.hasOwn(providerIcons, name) ? providerIcons[name] : undefined
-  if (!file) return undefined
+  const provider = builtinProviders.find((item) => item.name === name)
+  if (!provider) return undefined
   return {
-    body: readFileSync(new URL(`./assets/builtin-tools/${name}/${file}`, import.meta.url)),
-    mimeType: iconMimeTypes[file.split('.').pop()!]!,
+    body: readFileSync(new URL(`./assets/builtin-tools/${name}/${provider.icon}`, import.meta.url)),
+    mimeType: iconMimeTypes[provider.icon.split('.').pop()!]!,
   }
 }
+const builtinProviderList = builtinProviders.map(({ icon: _icon, ...provider }) => provider)
 
 // Custom API tools, extracted from the OpenAPI schema the way the backend does.
 type ApiToolProvider = {
@@ -374,7 +373,7 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
   }
 
   if (route === 'GET /builtin-tools/categories') return ok(res, toolCategories)
-  if (route === 'GET /builtin-tools') return ok(res, builtinProviders)
+  if (route === 'GET /builtin-tools') return ok(res, builtinProviderList)
 
   if (route === 'GET /api-tools') {
     const search = (url.searchParams.get('search_word') ?? '').toLowerCase()
