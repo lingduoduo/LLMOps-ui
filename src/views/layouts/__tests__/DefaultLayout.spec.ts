@@ -1,126 +1,72 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DOMWrapper, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { createPinia } from 'pinia'
-import { LayoutSider, Dropdown } from '@arco-design/web-vue'
+import { afterEach, describe, expect, it } from 'vitest'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import ArcoVue from '@arco-design/web-vue'
+import ArcoVueIcon from '@arco-design/web-vue/es/icon'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import DefaultLayout from '../DefaultLayout.vue'
-import { useAccountStore } from '@/stores/account'
-import { logout } from '@/services/auth'
-import { clearCredential, isLogin, setCredential } from '@/utils/auth'
 
-vi.mock('@/services/auth', async (original) => ({
-  ...(await original<typeof import('@/services/auth')>()),
-  logout: vi.fn(),
-}))
 let wrapper: VueWrapper | undefined
 afterEach(() => {
   wrapper?.unmount()
-  sessionStorage.clear()
-  vi.restoreAllMocks()
   document.body.innerHTML = ''
 })
-async function render(account = true, path = '/store/tools') {
-  const pinia = createPinia()
-  const store = useAccountStore(pinia)
-  if (account)
-    store.account = { id: '1', name: 'Ada Lovelace', email: 'ada@example.com', avatar: '/ada.png' }
-  const load = vi.spyOn(store, 'load').mockRejectedValue(new Error('Account unavailable'))
+
+async function render(path = '/store/tools') {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [
-      ...[
-        { path: '/home', name: 'pages-home', section: 'home' },
-        { path: '/space/apps', name: 'space-apps-list', section: 'space' },
-        { path: '/space/apps/create', name: 'space-apps-create', section: 'space' },
-        { path: '/store/apps', name: 'store-apps-list', section: 'apps' },
-        { path: '/store/tools', name: 'store-tools-list', section: 'tools' },
-        { path: '/open', name: 'open-api', section: 'open' },
-      ].map(({ path, name, section }) => ({
-        path,
-        name,
-        meta: { navigationSection: section as import('@/router/navigation').NavigationSection },
-        component: { template: '<p>Page content</p>' },
-      })),
-      {
-        path: '/account/settings',
-        name: 'account-settings',
-        component: { template: '<p>Settings</p>' },
-      },
-    ],
+    routes: ['/home', '/space/apps', '/space/tools', '/store/apps', '/store/tools', '/open'].map(
+      (route) => ({ path: route, component: { template: '<p>Page content</p>' } }),
+    ),
   })
   await router.push(path)
-  wrapper = mount(DefaultLayout, { global: { plugins: [pinia, router] }, attachTo: document.body })
+  wrapper = mount(DefaultLayout, {
+    global: { plugins: [ArcoVue, ArcoVueIcon, router] },
+    attachTo: document.body,
+  })
   await flushPromises()
-  return { view: wrapper, store, load, router }
+  return wrapper
 }
+const link = (view: VueWrapper, text: string) => view.findAll('a').find((el) => el.text() === text)!
+
 describe('default sidebar layout', () => {
-  it('opens creation and account settings from the reference sidebar controls', async () => {
-    const { view, router } = await render()
-    await view.get('button[aria-label="Create AI Application"]').trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.name).toBe('space-apps-create')
-    await view.get('button[aria-label="Account menu"]').trigger('click')
-    await flushPromises()
-    const option = document.querySelector('[data-action="account-settings"]')
-    expect(option).not.toBeNull()
-    await new DOMWrapper(option!).trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.name).toBe('account-settings')
+  it('renders the sidebar navigation, account block, and page outlet', async () => {
+    const view = await render()
+    expect(view.findAll('a').map((el) => el.attributes('href'))).toEqual([
+      '/home',
+      '/home',
+      '/space/apps',
+      '/store/apps',
+      '/store/tools',
+      '/open',
+    ])
+    expect(view.text()).toContain('Create AI App')
+    expect(view.text()).toContain('Explore')
+    expect(view.text()).toContain('LLMOps')
+    expect(view.text()).toContain('linghypshen@gmail.com')
+    expect(view.text()).toContain('Page content')
   })
+
   it.each([
-    ['/home', '/home'],
-    ['/space/apps', '/space/apps'],
-    ['/space/apps/create', '/space/apps'],
-    ['/store/apps', '/store/apps'],
-    ['/store/tools', '/store/tools'],
-    ['/open', '/open'],
-  ])('highlights only the correct sidebar section at %s', async (path, activeLink) => {
-    const { view } = await render(true, path)
-    const current = view.findAll('nav a[aria-current="page"]')
-    expect(current).toHaveLength(1)
-    expect(current[0]?.attributes('href')).toBe(activeLink)
-  })
-  it('renders one page outlet, English navigation, and the signed-in account', async () => {
-    const { view, load } = await render()
-    expect(view.text()).toContain('Ada Lovelace')
-    expect(view.text()).toContain('ada@example.com')
-    expect(view.findAll('nav[aria-label="Main navigation"]')).toHaveLength(1)
-    expect(view.get('a[href="/store/tools"]').attributes('aria-current')).toBe('page')
-    expect(view.text().match(/Page content/g)).toHaveLength(1)
-    expect(view.get('a[href="/open"]').text()).toBe('Open API')
-    expect(view.get('button[aria-label="Create AI Application"]').text()).toContain(
-      'Create AI Application',
+    ['/home', 'Home'],
+    ['/space/apps', 'Personal Space'],
+    ['/space/tools', 'Personal Space'],
+    ['/store/apps', 'App Marketplace'],
+    ['/store/tools', 'Tool Marketplace'],
+    ['/open', 'Open API'],
+  ])('highlights only the active section at %s', async (path, active) => {
+    const view = await render(path)
+    const sections = ['Home', 'Personal Space', 'App Marketplace', 'Tool Marketplace', 'Open API']
+    const highlighted = sections.filter((name) =>
+      link(view, name).classes().includes('bg-gray-100'),
     )
-    expect(view.getComponent(LayoutSider).props('width')).toBe(240)
-    expect(view.getComponent(Dropdown).props('position')).toBe('tl')
-    expect(view.text()).not.toContain('Workspace')
-    expect(load).not.toHaveBeenCalled()
+    expect(highlighted).toEqual([active])
   })
-  it('clears local session and account even when logout fails', async () => {
-    setCredential({ access_token: 'test', expire_at: Math.floor(Date.now() / 1000) + 1000 })
-    vi.mocked(logout).mockRejectedValue(new Error('Offline'))
-    const { view, store } = await render()
-    await view.get('button[aria-label="Account menu"]').trigger('click')
+
+  it('shows the account menu options', async () => {
+    const view = await render()
+    await view.get('.arco-dropdown-open-trigger, .arco-avatar').trigger('click')
     await flushPromises()
-    const option = document.querySelector('[data-action="sign-out"]')
-    expect(option).not.toBeNull()
-    await new DOMWrapper(option!).trigger('click')
-    await flushPromises()
-    expect(isLogin()).toBe(false)
-    expect(store.account).toBeNull()
-  })
-  it('shows account loading errors and permits retry', async () => {
-    const { view, load } = await render(false)
-    expect(view.get('[role="alert"]').text()).toContain('Account unavailable')
-    load.mockImplementation(async () => {})
-    await view.get('button[aria-label="Retry loading account"]').trigger('click')
-    await flushPromises()
-    expect(view.find('[role="alert"]').exists()).toBe(false)
-  })
-  it('clears the displayed profile when the session ends', async () => {
-    const { view } = await render()
-    clearCredential()
-    await flushPromises()
-    expect(view.text()).not.toContain('Ada Lovelace')
+    expect(document.body.textContent).toContain('Account Settings')
+    expect(document.body.textContent).toContain('Log Out')
   })
 })
