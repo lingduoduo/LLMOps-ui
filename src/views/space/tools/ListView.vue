@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   createApiToolProvider,
@@ -9,30 +9,21 @@ import {
   updateApiToolProvider,
   validateOpenAPISchema,
 } from '@/services/api-tool'
-import { uploadImage } from '@/services/upload-file'
-import type { GetApiToolProvidersWithPageResponse } from '@/models/api-tool'
-import moment from 'moment'
+import type { CreateApiToolProviderRequest } from '@/models/api-tool'
+import moment from 'moment/moment'
 import { typeMap } from '@/config'
-import { useAccountStore } from '@/stores/account'
-import {
-  Message,
-  Modal,
-  type FileItem,
-  type FormInstance,
-  type RequestOption,
-  type ValidatedError,
-} from '@arco-design/web-vue'
-
-type ApiToolProvider = GetApiToolProvidersWithPageResponse['data']['list'][number]
-
-// Tool name limit enforced by the backend's CreateApiToolReq / UpdateApiToolProviderReq
-const NAME_MAX_LENGTH = 30
+import { Message, Modal, type FormInstance, type ValidatedError } from '@arco-design/web-vue'
 
 const route = useRoute()
-const accountStore = useAccountStore()
-const props = defineProps<{ createType?: string }>()
-const emits = defineEmits<{ 'update-create-type': [value: string] }>()
-const providers = reactive<ApiToolProvider[]>([])
+const props = defineProps({
+  createType: {
+    type: String,
+    required: true,
+  },
+})
+const emits = defineEmits(['update-create-type'])
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const providers = reactive<Array<any>>([])
 const paginator = reactive({
   current_page: 1,
   page_size: 20,
@@ -45,16 +36,12 @@ const form = reactive({
   openapi_schema: '',
   headers: [] as Array<{ key: string; value: string }>,
 })
-const formRef = ref<FormInstance>()
-const iconFileList = ref<FileItem[]>([])
-const loader = ref<HTMLElement>()
+const formRef = ref<FormInstance | null>(null)
 const showIdx = ref<number>(-1)
 const loading = ref<boolean>(false)
 const showUpdateModal = ref<boolean>(false)
 const showUpdateModalLoading = ref<boolean>(false)
 const submitLoading = ref<boolean>(false)
-const errorMessage = (cause: unknown) =>
-  cause instanceof Error ? cause.message : 'Something went wrong. Please try again.'
 const tools = computed(() => {
   try {
     // 1. Parse the openapi_schema data
@@ -62,18 +49,18 @@ const tools = computed(() => {
     const openapi_schema = JSON.parse(form.openapi_schema)
 
     // 2. Check whether paths exist
-    if (openapi_schema && typeof openapi_schema === 'object' && 'paths' in openapi_schema) {
+    if ('paths' in openapi_schema) {
       // 3. Loop over all paths and extract the tools
       for (const path in openapi_schema['paths']) {
         // 4. Go through the get and post methods under each path
         for (const method in openapi_schema['paths'][path]) {
           if (['get', 'post'].includes(method)) {
-            // 5. Extract the tool and check it has both operationId and description
+            // 5. Extract the tool and check it has both name and description fields
             const tool = openapi_schema['paths'][path][method]
-            if (tool && 'operationId' in tool && 'description' in tool) {
+            if ('operationId' in tool && 'description' in tool) {
               available_tools.push({
-                name: String(tool.operationId),
-                description: String(tool.description),
+                name: tool?.operationId,
+                description: tool?.description,
                 method: method,
                 path: path,
               })
@@ -84,14 +71,14 @@ const tools = computed(() => {
     }
     return available_tools
   } catch {
-    // The schema is not valid JSON yet
-    return []
+    console.log('Failed to parse openapi_schema')
   }
+  return []
 })
 
 // Load more data
 const loadMoreData = async (init: boolean = false) => {
-  // 1. Check whether more data needs loading
+  // 1. Check whether data needs loading
   if (!init && paginator.current_page > paginator.total_page) return
 
   // 2. Load more data and update the data state
@@ -122,8 +109,6 @@ const loadMoreData = async (init: boolean = false) => {
     } else {
       providers.push(...data.list)
     }
-  } catch (cause) {
-    Message.error(errorMessage(cause))
   } finally {
     loading.value = false
   }
@@ -137,16 +122,22 @@ const initData = () => {
   paginator.total_page = 0
   paginator.total_record = 0
 
-  // 2. Load the first page
-  return loadMoreData(true)
+  // 2. Load the data to finish initializing
+  loadMoreData(true)
 }
 
-// Scroll pagination: load the next page when the loader at the end of the list comes into view
-// (the page scrolls as a whole, so this watches the loader instead of a scroll container)
-let observer: IntersectionObserver | undefined
-const handleLoaderVisible = (entries: IntersectionObserverEntry[]) => {
-  if (!entries.some((entry) => entry.isIntersecting) || loading.value) return
-  void loadMoreData()
+// Scroll pagination handler
+const handleScroll = (event: UIEvent) => {
+  // 1. Get the scroll distance, the maximum scrollable distance, and the client/window height
+  const { scrollTop, scrollHeight, clientHeight } = event.target as HTMLElement
+
+  // 2. Check whether it has scrolled to the bottom
+  if (scrollTop + clientHeight >= scrollHeight - 10) {
+    if (loading.value) {
+      return
+    }
+    loadMoreData()
+  }
 }
 
 // Open the update modal
@@ -154,9 +145,9 @@ const handleUpdate = async () => {
   try {
     // 1. Get the provider_id currently shown
     showUpdateModalLoading.value = true
-    const provider_id = providers[showIdx.value]!.id
+    const provider_id = providers[showIdx.value]['id']
 
-    // 2. Fetch this tool provider's details by id
+    // 2. Fetch this tool provider's details by the id
     const resp = await getApiToolProvider(provider_id)
     const data = resp.data
 
@@ -165,31 +156,29 @@ const handleUpdate = async () => {
     form.icon = data.icon
     form.name = data.name
     form.openapi_schema = data.openapi_schema
-    form.headers = data.headers.map((header) => ({ ...header }))
-    showUpdateModal.value = true
-  } catch (cause) {
-    Message.error(errorMessage(cause))
+    form.headers = data.headers
   } finally {
     showUpdateModalLoading.value = false
   }
+
+  showUpdateModal.value = true
 }
 
-// Delete the tool provider
+// Delete tool provider handler
 const handleDelete = () => {
   Modal.warning({
     title: 'Delete this tool?',
-    content: 'Deleting a tool cannot be undone. AI apps will no longer be able to use your tool.',
+    content:
+      'Deleting a tool cannot be undone. AI apps will no longer be able to access your tool.',
     hideCancel: false,
-    okText: 'Delete',
+    okText: 'OK',
     cancelText: 'Cancel',
     onOk: async () => {
       try {
-        // 1. After confirming, send the request to the API
-        const provider_id = providers[showIdx.value]!.id
+        // 1. After clicking OK, send the request to the API
+        const provider_id = providers[showIdx.value]['id']
         const resp = await deleteApiToolProvider(provider_id)
         Message.success(resp.message)
-      } catch (cause) {
-        Message.error(errorMessage(cause))
       } finally {
         // 2. Close the modal and the drawer
         handleCancel()
@@ -202,43 +191,39 @@ const handleDelete = () => {
   })
 }
 
-// Submit the modal form
+// Submit modal handler
 const handleSubmit = async ({
+  values,
   errors,
 }: {
-  values: Record<string, unknown>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  values: Record<string, any>
   errors: Record<string, ValidatedError> | undefined
 }) => {
-  // 1. Stop if there are validation errors
+  // 1. Stop if there are errors
   if (errors) return
 
   try {
-    // 2. Put the save button into the loading state to avoid repeated clicks
+    // 2. Put the modal button into the loading state to avoid repeated clicks
     submitLoading.value = true
-    const payload = {
-      icon: form.icon,
-      name: form.name.trim(),
-      openapi_schema: form.openapi_schema,
-      headers: form.headers.map((header) => ({ ...header })),
-    }
 
     // 3. Send a different request for each type
     if (props.createType === 'tool') {
-      // 4. Call the API to create the tool
-      const resp = await createApiToolProvider(payload)
+      // 4. Call the API to send the create request
+      const resp = await createApiToolProvider(values as CreateApiToolProviderRequest)
       Message.success(resp.message)
     } else if (showUpdateModal.value) {
-      // 5. Call the API to update the API tool
-      const resp = await updateApiToolProvider(providers[showIdx.value]!.id, payload)
+      // 5. Call the API to send the update API tool request
+      const resp = await updateApiToolProvider(
+        providers[showIdx.value]['id'],
+        values as CreateApiToolProviderRequest,
+      )
       Message.success(resp.message)
     }
 
-    // 6. Follow-up: hide the modal and the drawer
+    // 6. Follow-up: hide the modal and hide the drawer
     handleCancel()
     showIdx.value = -1
-  } catch (cause) {
-    Message.error(errorMessage(cause))
-    return
   } finally {
     submitLoading.value = false
   }
@@ -247,42 +232,9 @@ const handleSubmit = async ({
   await initData()
 }
 
-// Validate the OpenAPI schema when the textarea loses focus
-const handleSchemaBlur = async () => {
-  if (form.openapi_schema.trim() === '') return
-  try {
-    // Call the validate openapi_schema API
-    await validateOpenAPISchema(form.openapi_schema)
-  } catch (cause) {
-    Message.error(errorMessage(cause))
-  }
-}
-
-// Upload the icon to the backend and use the returned image URL
-const handleIconUpload = (option: RequestOption) => {
-  const file = option.fileItem.file
-  if (file) {
-    uploadImage(file)
-      .then((resp) => {
-        form.icon = resp.data.image_url
-        option.onSuccess(resp)
-      })
-      .catch((cause) => {
-        Message.error(errorMessage(cause))
-        option.onError(cause)
-      })
-  }
-  return {}
-}
-
-// Removing the picture clears the icon
-const handleIconChange = (fileList: FileItem[]) => {
-  if (fileList.length === 0) form.icon = ''
-}
-
-// Close the modal
+// Cancel modal handler
 const handleCancel = () => {
-  // 1. Reset all the form data
+  // 1. Reset the whole form's data
   formRef.value?.resetFields()
 
   // 2. Hide the form modal
@@ -293,13 +245,7 @@ const handleCancel = () => {
 // Initialize the data once the page DOM is mounted
 onMounted(async () => {
   await initData()
-  if (typeof IntersectionObserver !== 'undefined' && loader.value) {
-    observer = new IntersectionObserver(handleLoaderVisible, { rootMargin: '200px' })
-    observer.observe(loader.value)
-  }
 })
-
-onBeforeUnmount(() => observer?.disconnect())
 
 // Watch the route query for changes
 watch(
@@ -308,31 +254,18 @@ watch(
     await initData()
   },
 )
-
-// Show the current icon in the upload picture card
-watch(
-  () => form.icon,
-  (icon) => {
-    if (iconFileList.value[0]?.url === icon) return
-    iconFileList.value = icon ? [{ uid: 'icon', url: icon, status: 'done' }] : []
-  },
-  { immediate: true },
-)
 </script>
 
 <template>
-  <a-spin :loading="loading" class="block h-full w-full">
+  <a-spin
+    :loading="loading"
+    class="block h-full w-full scrollbar-w-none overflow-scroll"
+    @scroll="handleScroll"
+  >
     <!-- Bottom tool list -->
     <a-row :gutter="[20, 20]" class="flex-1">
       <!-- UI state with data -->
-      <a-col
-        v-for="(provider, idx) in providers"
-        :key="provider.id"
-        :xs="24"
-        :sm="12"
-        :lg="6"
-        :data-provider="provider.id"
-      >
+      <a-col v-for="(provider, idx) in providers" :key="provider.name" :span="6">
         <a-card hoverable class="cursor-pointer rounded-lg" @click="showIdx = idx">
           <!-- Top provider name -->
           <div class="flex items-center gap-3 mb-3">
@@ -350,20 +283,20 @@ watch(
           <div class="leading-[18px] text-gray-500 h-[72px] line-clamp-4 mb-2">
             {{ provider.description }}
           </div>
-          <!-- Provider edit information -->
+          <!-- Provider publication information -->
           <div class="flex items-center gap-1.5">
             <a-avatar :size="18" class="bg-blue-700">
               <icon-user />
             </a-avatar>
             <div class="text-xs text-gray-400">
-              {{ accountStore.account?.name || 'You' }} · Edited
-              {{ moment.unix(provider.created_at).format('MM-DD HH:mm') }}
+              Mu Xiaoke · Edited
+              {{ moment(provider.created_at).format('MM-DD HH:mm') }}
             </div>
           </div>
         </a-card>
       </a-col>
       <!-- UI state without data -->
-      <a-col v-if="!loading && providers.length === 0" :span="24">
+      <a-col v-if="providers.length === 0" :span="24">
         <a-empty
           description="No API tools available"
           class="h-[400px] flex flex-col items-center justify-center"
@@ -371,21 +304,19 @@ watch(
       </a-col>
     </a-row>
     <!-- Loader -->
-    <div ref="loader">
-      <a-row v-if="providers.length > 0">
-        <!-- Loading data -->
-        <a-col v-if="paginator.current_page <= paginator.total_page" :span="24" align="center">
-          <a-space class="my-4">
-            <a-spin />
-            <div class="text-gray-400">Loading</div>
-          </a-space>
-        </a-col>
-        <!-- All data loaded -->
-        <a-col v-else :span="24" align="center">
-          <div class="text-gray-400 my-4">All data loaded</div>
-        </a-col>
-      </a-row>
-    </div>
+    <a-row v-if="providers.length > 0">
+      <!-- Loading data -->
+      <a-col v-if="paginator.current_page <= paginator.total_page" :span="24" align="center">
+        <a-space class="my-4">
+          <a-spin />
+          <div class="text-gray-400">Loading</div>
+        </a-space>
+      </a-col>
+      <!-- Data loading finished -->
+      <a-col v-else :span="24" align="center">
+        <div class="text-gray-400 my-4">All data loaded</div>
+      </a-col>
+    </a-row>
     <!-- Card drawer -->
     <a-drawer
       :visible="showIdx != -1"
@@ -395,8 +326,8 @@ watch(
       :drawer-style="{ background: '#F9FAFB' }"
       @cancel="showIdx = -1"
     >
-      <!-- Outer container: hidden when showIdx is -1 -->
-      <div v-if="showIdx != -1 && providers[showIdx]" class="">
+      <!-- Outer container: decides whether showIdx is -1, and hides it when it is -1 -->
+      <div v-if="showIdx != -1" class="">
         <!-- Top provider name -->
         <div class="flex items-center gap-3 mb-3">
           <!-- Left icon -->
@@ -458,7 +389,7 @@ watch(
                   <!-- Upper part -->
                   <div class="flex items-center gap-2 text-xs">
                     <div class="text-gray-900 font-bold">{{ input.name }}</div>
-                    <div class="text-gray-500">{{ typeMap[input.type] || input.type }}</div>
+                    <div class="text-gray-500">{{ typeMap[input.type] }}</div>
                     <div v-if="input.required" class="text-red-700">Required</div>
                   </div>
                   <!-- Parameter description -->
@@ -484,13 +415,7 @@ watch(
         <div class="text-lg font-bold text-gray-700">
           {{ props.createType === 'tool' ? 'Create' : 'Update' }} Tool
         </div>
-        <a-button
-          type="text"
-          class="!text-gray-700"
-          size="small"
-          aria-label="Close"
-          @click="handleCancel"
-        >
+        <a-button type="text" class="!text-gray-700" size="small" @click="handleCancel">
           <template #icon>
             <icon-close />
           </template>
@@ -498,52 +423,51 @@ watch(
       </div>
       <!-- Middle form -->
       <div class="pt-6">
-        <a-form
-          ref="formRef"
-          :model="form"
-          layout="vertical"
-          aria-label="Custom tool editor"
-          @submit="handleSubmit"
-        >
+        <a-form ref="formRef" :model="form" @submit="handleSubmit" layout="vertical">
           <a-form-item
             field="icon"
             hide-label
-            :rules="[{ required: true, message: 'The tool icon is required' }]"
+            :rules="[{ required: true, message: 'The tool icon cannot be empty' }]"
           >
             <a-upload
-              v-model:file-list="iconFileList"
+              v-model="form.icon"
               :limit="1"
               list-type="picture-card"
               accept="image/png, image/jpeg"
               class="!w-auto mx-auto"
-              :custom-request="handleIconUpload"
-              @change="handleIconChange"
             />
           </a-form-item>
           <a-form-item
             field="name"
             label="Tool Name"
             asterisk-position="end"
-            :rules="[{ required: true, message: 'The tool name is required' }]"
+            :rules="[{ required: true, message: 'The tool name cannot be empty' }]"
           >
             <a-input
               v-model="form.name"
-              placeholder="Enter a tool name with a clear meaning"
+              placeholder="Enter a tool name and make sure its meaning is clear"
               show-word-limit
-              :max-length="NAME_MAX_LENGTH"
+              :max-length="60"
             />
           </a-form-item>
           <a-form-item
             field="openapi_schema"
             label="OpenAPI Schema"
             asterisk-position="end"
-            :rules="[{ required: true, message: 'The OpenAPI schema is required' }]"
+            :rules="[{ required: true, message: 'The OpenAPI schema cannot be empty' }]"
           >
             <a-textarea
               v-model="form.openapi_schema"
               :auto-size="{ minRows: 4, maxRows: 6 }"
               placeholder="Enter your OpenAPI schema here"
-              @blur="handleSchemaBlur"
+              @blur="
+                async () => {
+                  if (form.openapi_schema.trim() !== '') {
+                    // Call the validate openapi_schema API
+                    await validateOpenAPISchema(form.openapi_schema)
+                  }
+                }
+              "
             />
           </a-form-item>
           <a-form-item label="Available Tools">
@@ -592,12 +516,15 @@ watch(
                   >
                     <td class="p-2 pl-3">
                       <a-form-item :field="`headers[${idx}].key`" hide-label class="m-0">
-                        <a-input v-model="header.key" placeholder="Enter the header key" />
+                        <a-input v-model="header.key" placeholder="Enter the request header key" />
                       </a-form-item>
                     </td>
                     <td class="p-2 pl-3">
                       <a-form-item :field="`headers[${idx}].value`" hide-label class="m-0">
-                        <a-input v-model="header.value" placeholder="Enter the header value" />
+                        <a-input
+                          v-model="header.value"
+                          placeholder="Enter the request header value"
+                        />
                       </a-form-item>
                     </td>
                     <td class="p-2 pl-3">
@@ -605,7 +532,6 @@ watch(
                         size="mini"
                         type="text"
                         class="!text-gray-700"
-                        aria-label="Remove header"
                         @click="form.headers.splice(idx, 1)"
                       >
                         <template #icon>
@@ -624,7 +550,7 @@ watch(
                 <template #icon>
                   <icon-plus />
                 </template>
-                Add Header
+                Add Parameter
               </a-button>
             </div>
           </a-form-item>
