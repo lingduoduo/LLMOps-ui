@@ -12,7 +12,9 @@ import {
   updateApiToolProvider,
   validateOpenAPISchema,
 } from '@/services/api-tool'
-import type { ApiToolProvider } from '@/models/api-tool'
+import type { GetApiToolProvidersWithPageResponse } from '@/models/api-tool'
+
+type ApiToolProvider = GetApiToolProvidersWithPageResponse['data']['list'][number]
 
 vi.mock('@/services/api-tool', () => ({
   createApiToolProvider: vi.fn(),
@@ -35,6 +37,7 @@ const provider = (id: string): ApiToolProvider => ({
   created_at: 1700000000,
   tools: [
     {
+      id: `${id}-forecast`,
       name: 'forecast',
       description: 'Get the forecast',
       inputs: [{ name: 'city', type: 'str', description: 'City name', required: true }],

@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { typeMap } from '@/config'
-import type { ToolInput } from '@/models/builtin-tool'
 
 // Tool cards shown in a provider's details drawer, with each tool's parameters.
 defineProps<{
-  tools: { name: string; label?: string; description: string; inputs?: ToolInput[] }[]
+  tools: {
+    name: string
+    label?: string
+    description: string
+    inputs?: { name: string; type: string; description: string; required: boolean }[]
+  }[]
 }>()
 </script>
 

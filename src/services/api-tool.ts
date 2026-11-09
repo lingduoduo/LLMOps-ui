@@ -46,5 +46,7 @@ export const deleteApiToolProvider = (provider_id: string) => {
 
 // Fetch API tool provider details.
 export const getApiToolProvider = (provider_id: string) => {
-  return get<GetApiToolProviderResponse>(`/api-tools/${encodeURIComponent(provider_id)}`)
+  return get<BaseResponse<GetApiToolProviderResponse>>(
+    `/api-tools/${encodeURIComponent(provider_id)}`,
+  )
 }

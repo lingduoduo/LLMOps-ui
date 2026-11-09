@@ -1,21 +1,26 @@
-import { type BaseResponse } from '@/models/base'
+import { type BaseResponse, type BasePaginatorResponse } from '@/models/base'
 
-// Application preview and debug response.
+// App preview and debug response
 export type DebugAppResponse = BaseResponse<{
   content: string
 }>
 
-export type AppSummary = {
+// Paginated app list response
+export type GetAppsWithPageResponse = BasePaginatorResponse<{
   id: string
   name: string
   description: string
   status: string
-}
+}>
 
-export type AppListResponse = import('./base').BasePaginatorResponse<AppSummary>
-
+// Create app request
 export type CreateAppRequest = {
   name: string
   icon: string
   description: string
 }
+
+// Create app response
+export type CreateAppResponse = BaseResponse<{
+  id: string
+}>

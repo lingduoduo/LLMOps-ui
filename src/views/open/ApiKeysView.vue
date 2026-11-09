@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getAccessToken } from '@/utils/auth'
-import type { ApiKey } from '@/models/api-key'
+import type { GetApiKeysWithPageResponse } from '@/models/api-key'
 import {
   getApiKeys,
   createApiKey,
@@ -9,6 +9,8 @@ import {
   toggleApiKey,
   deleteApiKey,
 } from '@/services/api-key'
+
+type ApiKey = GetApiKeysWithPageResponse['data']['list'][number]
 const keys = ref<ApiKey[]>([])
 const page = ref(1),
   totalPages = ref(1),

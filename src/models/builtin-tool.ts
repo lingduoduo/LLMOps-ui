@@ -1,30 +1,28 @@
-import type { BaseResponse } from './base'
+import { type BaseResponse } from '@/models/base'
 
-export type ToolInput = {
-  name: string
-  type: string
-  description: string
-  required: boolean
-}
+// Built-in tool categories response
+export type GetCategoriesResponse = BaseResponse<
+  Array<{
+    category: string
+    icon: string
+    name: string
+  }>
+>
 
-export type BuiltinTool = {
-  name: string
-  label: string
-  description: string
-  inputs: ToolInput[]
-}
-
-export type ToolCategory = { category: string; icon: string; name: string }
-
-export type BuiltinToolProvider = {
-  background: string
-  category: string
-  created_at: number
-  description: string
-  label: string
-  name: string
-  tools: BuiltinTool[]
-}
-
-export type GetCategoriesResponse = BaseResponse<ToolCategory[]>
-export type GetBuiltinToolsResponse = BaseResponse<BuiltinToolProvider[]>
+// All built-in tool providers response
+export type GetBuiltinToolsResponse = BaseResponse<
+  Array<{
+    background: string
+    category: string
+    created_at: number
+    description: string
+    label: string
+    name: string
+    tools: Array<{
+      name: string
+      label: string
+      description: string
+      inputs: Array<{ name: string; type: string; description: string; required: boolean }>
+    }>
+  }>
+>

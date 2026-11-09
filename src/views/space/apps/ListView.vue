@@ -2,7 +2,9 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getApps } from '@/services/app'
-import type { AppSummary } from '@/models/app'
+import type { GetAppsWithPageResponse } from '@/models/app'
+
+type AppSummary = GetAppsWithPageResponse['data']['list'][number]
 
 const route = useRoute()
 const router = useRouter()
