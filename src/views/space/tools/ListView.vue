@@ -13,7 +13,6 @@ import {
 import type { GetApiToolProvidersWithPageResponse } from '@/models/api-tool'
 import moment from 'moment'
 import ToolList from '@/components/ToolList.vue'
-import { pluralize } from '@/utils/format'
 import { useAccountStore } from '@/stores/account'
 
 type ApiToolProvider = GetApiToolProvidersWithPageResponse['data']['list'][number]
@@ -288,7 +287,7 @@ const remove = async () => {
               <div class="flex flex-col min-w-0">
                 <div class="text-base text-gray-900 font-bold truncate">{{ provider.name }}</div>
                 <div class="text-xs text-gray-500 line-clamp-1">
-                  Provider {{ provider.name }} · {{ pluralize(provider.tools.length, 'tool') }}
+                  {{ provider.tools.length }} tools
                 </div>
               </div>
             </div>
@@ -349,10 +348,7 @@ const remove = async () => {
             <div class="text-base text-gray-900 font-bold truncate">
               {{ selectedProvider.name }}
             </div>
-            <div class="text-xs text-gray-500 line-clamp-1">
-              Provider {{ selectedProvider.name }} ·
-              {{ pluralize(selectedProvider.tools.length, 'tool') }}
-            </div>
+            <div class="text-xs text-gray-500">{{ selectedProvider.tools.length }} tools</div>
           </div>
         </div>
         <div class="leading-[18px] text-gray-500 mb-4">{{ selectedProvider.description }}</div>
@@ -366,7 +362,7 @@ const remove = async () => {
           <template #icon><icon-settings /></template>
           Edit Tool
         </a-button>
-        <hr class="my-4 border-gray-200" />
+        <hr class="my-4" />
         <ToolList :tools="selectedProvider.tools" />
       </div>
     </a-drawer>
