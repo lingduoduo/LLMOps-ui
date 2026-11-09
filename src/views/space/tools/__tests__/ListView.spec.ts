@@ -61,13 +61,14 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-async function render(path = '/space/tools') {
+async function render(path = '/space/tools', props: { createType?: string } = {}) {
   router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/space/tools', name: 'space-tools-list', component: ListView }],
   })
   await router.push(path)
   wrapper = mount(ListView, {
+    props,
     global: { plugins: [ArcoVue, router, createPinia()] },
     attachTo: document.body,
   })
@@ -159,11 +160,13 @@ describe('personal space tools', () => {
     expect(deleteApiToolProvider).toHaveBeenCalledWith('weather')
   })
 
-  it('opens the create dialog from the query, previews schema tools, and creates', async () => {
+  it('opens the create dialog from createType, previews schema tools, and creates', async () => {
     vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
     vi.mocked(createApiToolProvider).mockResolvedValue(ok(null))
-    await render('/space/tools?create=tool')
+    const view = await render('/space/tools', { createType: 'tool' })
     expect(body().textContent).toContain('Create Tool')
+    // Hands createType back to the layout so the next create click fires again.
+    expect(view.emitted('update-create-type')).toEqual([['']])
     const schema = JSON.stringify({
       openapi: '3.0.0',
       paths: { '/weather': { get: { operationId: 'getWeather', description: 'Forecast' } } },
@@ -192,7 +195,7 @@ describe('personal space tools', () => {
   it('keeps the dialog open and does not create when schema validation fails', async () => {
     vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
     vi.mocked(validateOpenAPISchema).mockRejectedValue(new Error('Invalid OpenAPI schema'))
-    await render('/space/tools?create=tool')
+    await render('/space/tools', { createType: 'tool' })
     await type(
       'input[placeholder="https://example.com/icon.png"]',
       'https://example.com/weather.png',
@@ -211,7 +214,7 @@ describe('personal space tools', () => {
     ['javascript:alert(1)', 'Weather', 'The icon must be a valid http(s) URL.'],
   ])('rejects icon %j before calling the backend', async (icon, name, error) => {
     vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
-    await render('/space/tools?create=tool')
+    await render('/space/tools', { createType: 'tool' })
     await type('input[placeholder="https://example.com/icon.png"]', icon)
     await type('input[placeholder="Enter a clear, descriptive tool name"]', name)
     await type('textarea[placeholder="Paste your OpenAPI schema here"]', '{}')
@@ -223,7 +226,7 @@ describe('personal space tools', () => {
 
   it('limits tool names to the 30 characters the backend accepts', async () => {
     vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
-    await render('/space/tools?create=tool')
+    await render('/space/tools', { createType: 'tool' })
     await type('input[placeholder="Enter a clear, descriptive tool name"]', 'x'.repeat(40))
     const name = body().querySelector<HTMLInputElement>(
       'input[placeholder="Enter a clear, descriptive tool name"]',

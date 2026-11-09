@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import {
   createApiToolProvider,
@@ -28,8 +28,9 @@ const isHttpUrl = (value: string) => {
     return false
   }
 }
+const props = defineProps<{ createType?: string }>()
+const emit = defineEmits<{ 'update-create-type': [value: string] }>()
 const route = useRoute()
-const router = useRouter()
 const accountStore = useAccountStore()
 
 // Provider list, loaded page by page as the user scrolls.
@@ -171,17 +172,15 @@ const openEdit = async () => {
 const closeEditor = () => {
   if (saving.value) return
   editorOpen.value = false
-  if (route.query.create) {
-    const query = { ...route.query }
-    delete query.create
-    void router.replace({ query })
-  }
 }
-// Personal Space and the tool marketplace ask for the create dialog through `?create=tool`.
+// SpaceLayoutView asks for the create dialog through createType (its create button, or a
+// `?create=tool` link from the tool marketplace); reset it once handled so it can fire again.
 watch(
-  () => route.query.create,
-  (create) => {
-    if (create === 'tool' && !editorOpen.value) openCreate()
+  () => props.createType,
+  (createType) => {
+    if (createType !== 'tool') return
+    if (!editorOpen.value) openCreate()
+    emit('update-create-type', '')
   },
   { immediate: true },
 )
