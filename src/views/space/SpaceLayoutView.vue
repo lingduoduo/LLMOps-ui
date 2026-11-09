@@ -43,7 +43,7 @@ watch(
 </script>
 
 <template>
-  <div class="px-6 flex flex-col min-h-full">
+  <div class="px-6 flex flex-col overflow-hidden h-full">
     <div class="pt-6 sticky top-0 z-20 bg-white">
       <!-- Top title + create button -->
       <div class="flex items-center justify-between mb-6">

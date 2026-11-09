@@ -467,6 +467,11 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
       },
     })
   }
+  if (route === 'POST /upload-files/image') {
+    // The mock keeps no files: drain the multipart body and hand back a placeholder image.
+    await readBody(req)
+    return ok(res, { image_url: `https://picsum.photos/seed/${randomUUID()}/400` })
+  }
   if (route === 'POST /api-tools/validate-openapi-schema') {
     return parseSchema((await readBody(req)).openapi_schema)
       ? ok(res)
