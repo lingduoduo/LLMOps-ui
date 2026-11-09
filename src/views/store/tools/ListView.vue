@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
                     <!-- Upper part -->
                     <div class="flex items-center gap-2 text-xs">
                       <div class="text-gray-900 font-bold">{{ input.name }}</div>
-                      <div class="text-gray-500">{{ typeMap[input.type] }}</div>
+                      <div class="text-gray-500">{{ typeMap[input.type] || input.type }}</div>
                       <div v-if="input.required" class="text-red-700">Required</div>
                     </div>
                     <!-- Parameter description -->

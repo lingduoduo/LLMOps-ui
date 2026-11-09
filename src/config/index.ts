@@ -1,30 +1,23 @@
-// API request prefix
+// API request prefix: VITE_API_BASE_URL (default `/api`, proxied to the backend in development)
 export const apiPrefix: string = (import.meta.env.VITE_API_BASE_URL?.trim() || '/api').replace(
   /\/+$/,
   '',
 )
 
-// Business logic response codes
+// Business status codes
 export const httpCode = {
-  success: 'success', // Request succeeded
-  fail: 'fail', // Request failed
-  notFound: 'not_found', // Resource not found
-  unauthorized: 'unauthorized', // Unauthorized access
-  forbidden: 'forbidden', // Forbidden action
-  validateError: 'validate_error', // Validation error
+  success: 'success',
+  fail: 'fail',
+  notFound: 'not_found',
+  unauthorized: 'unauthorized',
+  forbidden: 'forbidden',
+  validateError: 'validate_error',
 }
 
-export const typeMap: Record<string, string> = {
+// Display names for tool parameter types (the backend's ParameterType: str, int, float, bool)
+export const typeMap: { [key: string]: string } = {
   str: 'String',
-  string: 'String',
   int: 'Integer',
-  integer: 'Integer',
-  float: 'Number',
-  number: 'Number',
+  float: 'Float',
   bool: 'Boolean',
-  boolean: 'Boolean',
-  array: 'Array',
-  list: 'Array',
-  object: 'Object',
-  dict: 'Object',
 }
