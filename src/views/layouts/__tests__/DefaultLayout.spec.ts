@@ -41,7 +41,8 @@ describe('default sidebar layout', () => {
     ])
     expect(view.text()).toContain('Create AI App')
     expect(view.text()).toContain('Explore')
-    expect(view.text()).toContain('Mu Xiaoke')
+    expect(view.text()).toContain('Ling Huang')
+    expect(view.text()).toContain('linghypshen@gmail.com')
     expect(view.text()).toContain('Page content')
   })
 
