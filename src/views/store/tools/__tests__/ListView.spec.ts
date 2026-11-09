@@ -88,7 +88,7 @@ describe('tool marketplace', () => {
     const drawer = document.body.querySelector('.arco-drawer')!.textContent
     expect(drawer).toContain('Tool Details')
     expect(drawer).toContain('Beta description')
-    expect(drawer).toContain('Includes 1 tools')
+    expect(drawer).toContain('Includes 1 tool')
     expect(drawer).toContain('Search query')
     expect(drawer).toContain('String')
     expect(drawer).toContain('Required')

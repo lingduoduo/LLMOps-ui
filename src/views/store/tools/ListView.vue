@@ -5,6 +5,7 @@ import { getBuiltinTools, getCategories } from '@/services/builtin-tool'
 import { apiPrefix, typeMap } from '@/config'
 import type { GetBuiltinToolsResponse, GetCategoriesResponse } from '@/models/builtin-tool'
 import moment from 'moment'
+import { pluralize } from '@/utils/format'
 
 // Declare variables
 const router = useRouter()
@@ -151,7 +152,7 @@ onBeforeUnmount(() => {
               <div class="flex flex-col">
                 <div class="text-base text-gray-900 font-bold">{{ provider.label }}</div>
                 <div class="text-xs text-gray-500 line-clamp-1">
-                  Provider {{ provider.name }} · {{ provider.tools.length }} tools
+                  Provider {{ provider.name }} · {{ pluralize(provider.tools.length, 'tool') }}
                 </div>
               </div>
             </div>
@@ -210,7 +211,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="text-xs text-gray-500 line-clamp-1">
                 Provider {{ filterProviders[showIdx].name }} ·
-                {{ filterProviders[showIdx].tools.length }} tools
+                {{ pluralize(filterProviders[showIdx].tools.length, 'tool') }}
               </div>
             </div>
           </div>
@@ -219,11 +220,11 @@ onBeforeUnmount(() => {
             {{ filterProviders[showIdx].description }}
           </div>
           <!-- Divider -->
-          <hr class="my-4" />
+          <hr class="my-4 border-gray-200" />
           <!-- Provider tools -->
           <div class="flex flex-col gap-2">
             <div class="text-xs text-gray-500">
-              Includes {{ filterProviders[showIdx].tools.length }} tools
+              Includes {{ pluralize(filterProviders[showIdx].tools.length, 'tool') }}
             </div>
             <!-- Tool list -->
             <a-card
@@ -240,7 +241,7 @@ onBeforeUnmount(() => {
                 <!-- Divider -->
                 <div class="flex items-center gap-2 my-4">
                   <div class="text-xs font-bold text-gray-500">Parameters</div>
-                  <hr class="flex-1" />
+                  <hr class="flex-1 border-gray-200" />
                 </div>
                 <!-- Parameter list -->
                 <div class="flex flex-col gap-4">

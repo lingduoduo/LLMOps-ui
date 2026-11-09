@@ -182,19 +182,25 @@ const parseSchema = (raw: unknown) => {
     const tools = Object.values(schema.paths as Record<string, Record<string, unknown>>).flatMap(
       (operations) =>
         Object.entries(operations ?? {}).flatMap(([method, op]) => {
-          const operation = op as { operationId?: string; description?: string } | null
+          const operation = op as {
+            operationId?: string
+            description?: string
+            parameters?: Array<Record<string, unknown>>
+          } | null
           return ['get', 'post'].includes(method) && operation?.operationId
             ? [
                 {
+                  id: operation.operationId,
                   name: operation.operationId,
                   description: operation.description ?? '',
-                  inputs: [],
+                  // Like GetApiToolProvidersWithPageResp: each parameter without its `in`.
+                  inputs: (operation.parameters ?? []).map(({ in: _in, ...input }) => input),
                 },
               ]
             : []
         }),
     )
-    return { description: String(schema.info?.description ?? ''), tools }
+    return { description: String(schema.description ?? schema.info?.description ?? ''), tools }
   } catch {
     return null
   }
@@ -214,9 +220,32 @@ const validationError = (res: ServerResponse, message: string) =>
   sendJson(res, 200, { code: 'validate_error', message, data: {} })
 
 const weatherSchema = JSON.stringify({
-  openapi: '3.0.0',
-  info: { title: 'Weather', description: 'Look up the weather for a city.' },
-  paths: { '/weather': { get: { operationId: 'getWeather', description: 'Current weather' } } },
+  description: 'Look up the weather for a city.',
+  server: 'https://weather.example.com',
+  paths: {
+    '/weather': {
+      get: {
+        description: 'Get the current weather for a city.',
+        operationId: 'getWeather',
+        parameters: [
+          {
+            name: 'city',
+            in: 'query',
+            description: 'City to look up, e.g. London',
+            required: true,
+            type: 'str',
+          },
+          {
+            name: 'units',
+            in: 'query',
+            description: 'metric or imperial; defaults to metric',
+            required: false,
+            type: 'str',
+          },
+        ],
+      },
+    },
+  },
 })
 const apiToolProviders: ApiToolProvider[] = Array.from({ length: 25 }, (_, index) => ({
   id: `api-tool-${index + 1}`,
