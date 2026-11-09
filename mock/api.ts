@@ -19,61 +19,152 @@ const apps = Array.from({ length: 45 }, (_, index) => ({
   status: index % 3 === 0 ? 'draft' : 'published',
 }))
 
-// Built-in tool marketplace data.
+// Built-in tool marketplace data, mirroring LLMOps-Flask-Service
+// internal/core/tools/builtin_tools (categories.yaml, providers.yaml, each tool's YAML,
+// and the inputs BuiltinToolService derives from the tool's args_schema).
 const toolCategories = [
   { category: 'search', name: 'Search', icon: '' },
   { category: 'image', name: 'Image', icon: '' },
   { category: 'weather', name: 'Weather', icon: '' },
+  { category: 'tool', name: 'Tool', icon: '' },
+  { category: 'other', name: 'Other', icon: '' },
+]
+const queryInput = (description: string) => [
+  { name: 'query', type: 'str', description, required: true },
 ]
 const builtinProviders = [
   {
     name: 'google',
     label: 'Google',
-    category: 'search',
+    description: 'Google service provider, covering Google Search and other tools.',
     background: '#E5E7EB',
-    description: 'Search the web with Google and return the top results.',
-    created_at: 1721460914,
+    category: 'search',
+    created_at: 1722498386,
     tools: [
       {
         name: 'google_serper',
-        label: 'Google Search',
-        description: 'Run a Google search and return result snippets.',
-        inputs: [{ name: 'query', type: 'str', description: 'Search keywords', required: true }],
+        label: 'Google Serper Search',
+        description:
+          'This is a low-cost Google Search API. Use this tool when you need to look up current events; the input is a query string.',
+        params: [],
+        inputs: queryInput('The query string to search for.'),
+      },
+    ],
+  },
+  {
+    name: 'time',
+    label: 'Time',
+    description: 'A tool for obtaining the current time.',
+    background: '#E5E7EB',
+    category: 'tool',
+    created_at: 1722498386,
+    tools: [
+      {
+        name: 'current_time',
+        label: 'Current Time',
+        description: 'A tool for retrieving the current time.',
+        params: [],
+        inputs: [],
+      },
+    ],
+  },
+  {
+    name: 'duckduckgo',
+    label: 'DuckDuckGo',
+    description: 'A privacy-focused search engine.',
+    background: '#FFFFFF',
+    category: 'search',
+    created_at: 1722498386,
+    tools: [
+      {
+        name: 'duckduckgo_search',
+        label: 'DuckDuckGo Search',
+        description: 'A privacy-focused search engine.',
+        params: [],
+        inputs: queryInput('The search query to execute'),
       },
     ],
   },
   {
     name: 'dalle',
     label: 'DALL·E',
+    description: 'DALL·E is a text-to-image generation tool.',
+    background: '#E5E7EB',
     category: 'image',
-    background: '#DBEAFE',
-    description: 'Generate images from a text prompt.',
-    created_at: 1721460914,
+    created_at: 1722498386,
     tools: [
       {
         name: 'dalle3',
-        label: 'DALL·E 3',
-        description: 'Create an image from a prompt.',
-        inputs: [
-          { name: 'query', type: 'str', description: 'Image prompt', required: true },
-          { name: 'size', type: 'str', description: 'Image size, e.g. 1024x1024', required: false },
+        label: 'DALLE-3 Drawing Tool',
+        description: 'DALLE-3 is a text-to-image generation tool.',
+        params: [
+          {
+            name: 'size',
+            label: 'Image Size',
+            type: 'select',
+            default: '1024x1024',
+            required: true,
+            options: [
+              { value: '1024x1024', label: '(Square) 1024×1024' },
+              { value: '1792x1024', label: '(Landscape) 1792×1024' },
+              { value: '1024x1792', label: '(Portrait) 1024×1792' },
+            ],
+          },
+          {
+            name: 'style',
+            label: 'Image Style',
+            type: 'select',
+            default: 'vivid',
+            required: true,
+            options: [
+              { value: 'vivid', label: 'Vivid' },
+              { value: 'natural', label: 'Natural' },
+            ],
+          },
         ],
+        inputs: queryInput('The input should be the text prompt for generating the image'),
       },
     ],
   },
   {
     name: 'gaode',
-    label: 'Gaode Weather',
-    category: 'weather',
-    background: '#DCFCE7',
-    description: 'Look up current weather and forecasts for a city.',
-    created_at: 1721460914,
+    label: 'Gaode Toolkit',
+    description: 'Includes built-in Gaode weather forecasts and IP lookup functionality.',
+    background: '#E5E7EB',
+    category: 'tool',
+    created_at: 1722498386,
     tools: [
       {
         name: 'gaode_weather',
-        label: 'City Weather',
-        description: 'Get the weather for a city.',
-        inputs: [{ name: 'city', type: 'str', description: 'City name', required: true }],
+        label: 'Gaode Weather Forecast Query',
+        description: 'Retrieve the weather forecast for a specified city.',
+        params: [],
+        inputs: [
+          {
+            name: 'city',
+            type: 'str',
+            description: 'The target city for which to fetch the weather forecast, e.g., Guangzhou',
+            required: true,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'wikipedia',
+    label: 'Wikipedia',
+    description:
+      'Wikipedia is a free online encyclopedia created and edited by volunteers around the world.',
+    background: '#FFFFFF',
+    category: 'other',
+    created_at: 1722498386,
+    tools: [
+      {
+        name: 'wikipedia_search',
+        label: 'Wikipedia Search',
+        description: 'A tool for performing Wikipedia searches and extracting snippets and pages.',
+        params: [],
+        inputs: queryInput('query to look up on wikipedia'),
       },
     ],
   },
@@ -115,6 +206,20 @@ const parseSchema = (raw: unknown) => {
     return null
   }
 }
+// Same rules as the backend's CreateApiToolReq / UpdateApiToolProviderReq forms.
+const validateApiToolBody = (body: Record<string, unknown>) => {
+  const name = String(body.name ?? '').trim()
+  const icon = String(body.icon ?? '').trim()
+  if (!name) return 'Provider name cannot be empty'
+  if (name.length > 30) return 'Provider name length must be between 1 and 30'
+  if (!icon) return 'Provider icon cannot be empty'
+  if (!/^https?:\/\/[^\s/]+\.[^\s]+$/.test(icon)) return 'Provider icon must be a valid URL'
+  if (!parseSchema(body.openapi_schema)) return 'Invalid OpenAPI schema.'
+  return null
+}
+const validationError = (res: ServerResponse, message: string) =>
+  sendJson(res, 200, { code: 'validate_error', message, data: {} })
+
 const weatherSchema = JSON.stringify({
   openapi: '3.0.0',
   info: { title: 'Weather', description: 'Look up the weather for a city.' },
@@ -123,7 +228,8 @@ const weatherSchema = JSON.stringify({
 const apiToolProviders: ApiToolProvider[] = Array.from({ length: 25 }, (_, index) => ({
   id: `api-tool-${index + 1}`,
   name: `Mock Weather ${index + 1}`,
-  icon: '',
+  // The backend requires an icon URL; the samples default to picsum placeholders.
+  icon: `https://picsum.photos/seed/weather-${index + 1}/80`,
   description: 'Look up the weather for a city.',
   openapi_schema: weatherSchema,
   headers: [],
@@ -289,14 +395,13 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
   }
   if (route === 'POST /api-tools') {
     const body = await readBody(req)
-    const parsed = parseSchema(body.openapi_schema)
-    if (!parsed || !body.name) {
-      return sendJson(res, 200, { code: 'validate_error', message: 'Invalid tool.', data: {} })
-    }
+    const invalid = validateApiToolBody(body)
+    if (invalid) return validationError(res, invalid)
+    const parsed = parseSchema(body.openapi_schema)!
     apiToolProviders.unshift({
       id: randomUUID(),
-      name: String(body.name),
-      icon: String(body.icon ?? ''),
+      name: String(body.name).trim(),
+      icon: String(body.icon).trim(),
       description: parsed.description,
       openapi_schema: String(body.openapi_schema),
       headers: (body.headers as ApiToolProvider['headers']) ?? [],
@@ -318,17 +423,12 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (req.method === 'POST') {
       const body = await readBody(req)
-      const parsed = parseSchema(body.openapi_schema)
-      if (!parsed) {
-        return sendJson(res, 200, {
-          code: 'validate_error',
-          message: 'Invalid OpenAPI schema.',
-          data: {},
-        })
-      }
+      const invalid = validateApiToolBody(body)
+      if (invalid) return validationError(res, invalid)
+      const parsed = parseSchema(body.openapi_schema)!
       Object.assign(provider, {
-        name: String(body.name ?? provider.name),
-        icon: String(body.icon ?? ''),
+        name: String(body.name).trim(),
+        icon: String(body.icon).trim(),
         description: parsed.description,
         openapi_schema: String(body.openapi_schema),
         headers: body.headers ?? [],
