@@ -22,7 +22,8 @@ const apps = Array.from({ length: 45 }, (_, index) => ({
 
 // Built-in tool marketplace data, mirroring LLMOps-Flask-Service
 // internal/core/tools/builtin_tools (categories.yaml, providers.yaml, each tool's YAML,
-// and the inputs BuiltinToolService derives from the tool's args_schema).
+// and the inputs BuiltinToolService derives from the tool's args_schema). The backend's
+// gaode provider is left out on purpose.
 const toolCategories = [
   { category: 'search', name: 'Search', icon: '' },
   { category: 'image', name: 'Image', icon: '' },
@@ -128,30 +129,6 @@ const builtinProviders = [
     ],
   },
   {
-    name: 'gaode',
-    label: 'Gaode Toolkit',
-    description: 'Includes built-in Gaode weather forecasts and IP lookup functionality.',
-    background: '#E5E7EB',
-    category: 'tool',
-    created_at: 1722498386,
-    tools: [
-      {
-        name: 'gaode_weather',
-        label: 'Gaode Weather Forecast Query',
-        description: 'Retrieve the weather forecast for a specified city.',
-        params: [],
-        inputs: [
-          {
-            name: 'city',
-            type: 'str',
-            description: 'The target city for which to fetch the weather forecast, e.g., Guangzhou',
-            required: true,
-          },
-        ],
-      },
-    ],
-  },
-  {
     name: 'wikipedia',
     label: 'Wikipedia',
     description:
@@ -177,7 +154,6 @@ const providerIcons: Record<string, string> = {
   time: 'icon.svg',
   duckduckgo: 'icon.svg',
   dalle: 'icon.png',
-  gaode: 'icon.png',
   wikipedia: 'icon.svg',
 }
 const iconMimeTypes: Record<string, string> = { png: 'image/png', svg: 'image/svg+xml' }
