@@ -112,6 +112,18 @@ describe('personal space tools', () => {
     )
   })
 
+  it('opens a provider card from the keyboard, like the tool marketplace', async () => {
+    vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([provider('a')]))
+    const view = await render()
+    const card = view.get('[data-provider="a"]')
+    expect(card.attributes()).toMatchObject({ role: 'button', tabindex: '0' })
+    expect(card.text()).toContain('Provider Tool a · 1 tool')
+    await card.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(body().querySelector('.arco-drawer')!.textContent).toContain('Includes 1 tool')
+    expect(body().textContent).toContain('City name')
+  })
+
   it('shows provider details, edits the provider, and confirms before deleting', async () => {
     vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([provider('weather')]))
     vi.mocked(getApiToolProvider).mockResolvedValue(
@@ -127,7 +139,7 @@ describe('personal space tools', () => {
     vi.mocked(updateApiToolProvider).mockResolvedValue(ok(null))
     vi.mocked(deleteApiToolProvider).mockResolvedValue(ok(null))
     const view = await render()
-    await view.get('button[aria-label="View Tool weather tools"]').trigger('click')
+    await view.get('[aria-label="View Tool weather tools"]').trigger('click')
     await flushPromises()
     expect(body().textContent).toContain('City name')
     expect(body().textContent).toContain('Required')
@@ -149,7 +161,7 @@ describe('personal space tools', () => {
     })
     expect(getApiToolProvidersWithPage).toHaveBeenCalledTimes(2)
 
-    await view.get('button[aria-label="View Tool weather tools"]').trigger('click')
+    await view.get('[aria-label="View Tool weather tools"]').trigger('click')
     await button('Edit Tool').click()
     await flushPromises()
     await button('Delete').click()
