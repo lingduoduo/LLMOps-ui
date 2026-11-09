@@ -16,6 +16,15 @@ import ToolList from '@/components/ToolList.vue'
 import { useAccountStore } from '@/stores/account'
 
 const PAGE_SIZE = 20
+// Limits enforced by the backend's CreateApiToolReq / UpdateApiToolProviderReq.
+const NAME_MAX_LENGTH = 30
+const isHttpUrl = (value: string) => {
+  try {
+    return ['http:', 'https:'].includes(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
 const route = useRoute()
 const router = useRouter()
 const accountStore = useAccountStore()
@@ -188,9 +197,18 @@ const save = async () => {
   if (saving.value) return
   editorError.value = ''
   const name = form.name.trim()
+  const icon = form.icon.trim()
   const openapi_schema = form.openapi_schema.trim()
-  if (!name || !openapi_schema) {
-    editorError.value = 'Enter a tool name and an OpenAPI schema.'
+  if (!icon || !name || !openapi_schema) {
+    editorError.value = 'Enter an icon URL, a tool name, and an OpenAPI schema.'
+    return
+  }
+  if (!isHttpUrl(icon)) {
+    editorError.value = 'The icon must be a valid http(s) URL.'
+    return
+  }
+  if (name.length > NAME_MAX_LENGTH) {
+    editorError.value = `The tool name can be at most ${NAME_MAX_LENGTH} characters.`
     return
   }
   const headers = form.headers
@@ -204,7 +222,7 @@ const save = async () => {
   try {
     await validateOpenAPISchema(openapi_schema)
     if (disposed) return
-    const payload = { name, icon: form.icon.trim(), openapi_schema, headers }
+    const payload = { name, icon, openapi_schema, headers }
     const response = editingId.value
       ? await updateApiToolProvider(editingId.value, payload)
       : await createApiToolProvider(payload)
@@ -378,7 +396,7 @@ const remove = async () => {
               {{ form.name.trim().charAt(0).toUpperCase() || '?' }}
             </a-avatar>
             <label class="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-              Icon URL
+              <span>Icon URL <span class="text-red-700">*</span></span>
               <a-input v-model="form.icon" placeholder="https://example.com/icon.png" />
             </label>
           </div>
@@ -388,7 +406,7 @@ const remove = async () => {
               v-model="form.name"
               placeholder="Enter a clear, descriptive tool name"
               show-word-limit
-              :max-length="60"
+              :max-length="NAME_MAX_LENGTH"
             />
           </label>
           <label class="flex flex-col gap-1 text-sm text-gray-700">

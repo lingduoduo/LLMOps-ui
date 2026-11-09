@@ -114,7 +114,7 @@ describe('personal space tools', () => {
       ok({
         id: 'weather',
         name: 'Weather',
-        icon: '',
+        icon: 'https://example.com/weather.png',
         openapi_schema: '{}',
         headers: [{ key: 'X-Key', value: 'secret' }],
         created_at: 1700000000,
@@ -139,7 +139,7 @@ describe('personal space tools', () => {
     expect(validateOpenAPISchema).toHaveBeenCalledWith('{}')
     expect(updateApiToolProvider).toHaveBeenCalledWith('weather', {
       name: 'Updated Weather',
-      icon: '',
+      icon: 'https://example.com/weather.png',
       openapi_schema: '{}',
       headers: [{ key: 'X-Key', value: 'secret' }],
     })
@@ -165,6 +165,10 @@ describe('personal space tools', () => {
       openapi: '3.0.0',
       paths: { '/weather': { get: { operationId: 'getWeather', description: 'Forecast' } } },
     })
+    await type(
+      'input[placeholder="https://example.com/icon.png"]',
+      ' https://example.com/weather.png ',
+    )
     await type('input[placeholder="Enter a clear, descriptive tool name"]', 'Weather')
     await type('textarea[placeholder="Paste your OpenAPI schema here"]', schema)
     expect(body().textContent).toContain('getWeather')
@@ -175,7 +179,7 @@ describe('personal space tools', () => {
     await submit()
     expect(createApiToolProvider).toHaveBeenCalledWith({
       name: 'Weather',
-      icon: '',
+      icon: 'https://example.com/weather.png',
       openapi_schema: schema,
       headers: [{ key: 'Authorization', value: 'Bearer x' }],
     })
@@ -186,11 +190,42 @@ describe('personal space tools', () => {
     vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
     vi.mocked(validateOpenAPISchema).mockRejectedValue(new Error('Invalid OpenAPI schema'))
     await render('/space/tools?create=tool')
+    await type(
+      'input[placeholder="https://example.com/icon.png"]',
+      'https://example.com/weather.png',
+    )
     await type('input[placeholder="Enter a clear, descriptive tool name"]', 'Weather')
     await type('textarea[placeholder="Paste your OpenAPI schema here"]', '{}')
     await submit()
     expect(body().querySelector('[role="alert"]')!.textContent).toContain('Invalid OpenAPI schema')
     expect(createApiToolProvider).not.toHaveBeenCalled()
     expect(body().querySelector('form[aria-label="Custom tool editor"]')).not.toBeNull()
+  })
+
+  it.each([
+    ['', 'Weather', 'Enter an icon URL, a tool name, and an OpenAPI schema.'],
+    ['not a url', 'Weather', 'The icon must be a valid http(s) URL.'],
+    ['javascript:alert(1)', 'Weather', 'The icon must be a valid http(s) URL.'],
+  ])('rejects icon %j before calling the backend', async (icon, name, error) => {
+    vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
+    await render('/space/tools?create=tool')
+    await type('input[placeholder="https://example.com/icon.png"]', icon)
+    await type('input[placeholder="Enter a clear, descriptive tool name"]', name)
+    await type('textarea[placeholder="Paste your OpenAPI schema here"]', '{}')
+    await submit()
+    expect(body().querySelector('[role="alert"]')!.textContent).toContain(error)
+    expect(validateOpenAPISchema).not.toHaveBeenCalled()
+    expect(createApiToolProvider).not.toHaveBeenCalled()
+  })
+
+  it('limits tool names to the 30 characters the backend accepts', async () => {
+    vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
+    await render('/space/tools?create=tool')
+    await type('input[placeholder="Enter a clear, descriptive tool name"]', 'x'.repeat(40))
+    const name = body().querySelector<HTMLInputElement>(
+      'input[placeholder="Enter a clear, descriptive tool name"]',
+    )!
+    expect(name.value).toHaveLength(30)
+    expect(body().textContent).toContain('30/30')
   })
 })
