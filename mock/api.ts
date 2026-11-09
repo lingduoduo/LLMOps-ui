@@ -182,19 +182,25 @@ const parseSchema = (raw: unknown) => {
     const tools = Object.values(schema.paths as Record<string, Record<string, unknown>>).flatMap(
       (operations) =>
         Object.entries(operations ?? {}).flatMap(([method, op]) => {
-          const operation = op as { operationId?: string; description?: string } | null
+          const operation = op as {
+            operationId?: string
+            description?: string
+            parameters?: Array<Record<string, unknown>>
+          } | null
           return ['get', 'post'].includes(method) && operation?.operationId
             ? [
                 {
+                  id: operation.operationId,
                   name: operation.operationId,
                   description: operation.description ?? '',
-                  inputs: [],
+                  // Like GetApiToolProvidersWithPageResp: each parameter without its `in`.
+                  inputs: (operation.parameters ?? []).map(({ in: _in, ...input }) => input),
                 },
               ]
             : []
         }),
     )
-    return { description: String(schema.info?.description ?? ''), tools }
+    return { description: String(schema.description ?? schema.info?.description ?? ''), tools }
   } catch {
     return null
   }
@@ -213,21 +219,92 @@ const validateApiToolBody = (body: Record<string, unknown>) => {
 const validationError = (res: ServerResponse, message: string) =>
   sendJson(res, 200, { code: 'validate_error', message, data: {} })
 
-const weatherSchema = JSON.stringify({
-  openapi: '3.0.0',
-  info: { title: 'Weather', description: 'Look up the weather for a city.' },
-  paths: { '/weather': { get: { operationId: 'getWeather', description: 'Current weather' } } },
+// Custom API tools taken from real backend data: the Youdao dictionary tool and the toolkit
+// schema used by LLMOps-Flask-Service test/internal/handler/test_api_tool_handler.py.
+const youdaoSchema = JSON.stringify({
+  description: 'A tool for looking up English word definitions.',
+  server: 'https://dict.youdao.com',
+  paths: {
+    '/suggest': {
+      get: {
+        description: 'Look up dictionary information for the given word.',
+        operationId: 'YoudaoSuggest',
+        parameters: [
+          {
+            name: 'q',
+            in: 'query',
+            description: 'The word to look up, e.g. love/computer',
+            required: true,
+            type: 'str',
+          },
+          {
+            name: 'doctype',
+            in: 'query',
+            description: 'Response format, json or xml; json by default',
+            required: false,
+            type: 'str',
+          },
+        ],
+      },
+    },
+  },
 })
-const apiToolProviders: ApiToolProvider[] = Array.from({ length: 25 }, (_, index) => ({
-  id: `api-tool-${index + 1}`,
-  name: `Mock Weather ${index + 1}`,
-  // The backend requires an icon URL; the samples default to picsum placeholders.
-  icon: `https://picsum.photos/seed/weather-${index + 1}/80`,
-  description: 'Look up the weather for a city.',
-  openapi_schema: weatherSchema,
-  headers: [],
-  created_at: 1721460914 - index * 3600,
-}))
+const toolkitSchema = JSON.stringify({
+  description: 'Query IP location, weather forecast, route planning, etc. via a sample toolkit',
+  server: 'https://tools.example.com',
+  paths: {
+    '/weather': {
+      get: {
+        description: 'Get weather forecast for a specified city, e.g., Guangzhou',
+        operationId: 'GetCurrentWeather',
+        parameters: [
+          {
+            name: 'location',
+            in: 'query',
+            description: 'City name to query weather for',
+            required: true,
+            type: 'str',
+          },
+        ],
+      },
+    },
+    '/ip': {
+      post: {
+        description: 'Query IP location based on given IP',
+        operationId: 'GetCurrentIp',
+        parameters: [
+          {
+            name: 'ip',
+            in: 'request_body',
+            description: 'Standard IP address to query, e.g., 201.52.14.23',
+            required: true,
+            type: 'str',
+          },
+        ],
+      },
+    },
+  },
+})
+const apiToolProviders: ApiToolProvider[] = [
+  {
+    id: 'a4b99b28-dcca-452d-b7ae-86f3188ca9c1',
+    name: 'Youdao Dictionary',
+    icon: 'https://shared.ydstatic.com/images/favicon.ico',
+    description: 'A tool for looking up English word definitions.',
+    openapi_schema: youdaoSchema,
+    headers: [],
+    created_at: Math.floor(new Date(2025, 0, 21, 7, 38).getTime() / 1000),
+  },
+  {
+    id: 'a4b99b28-dcca-452d-b7ae-86f3188ca9cb',
+    name: 'Google Search Toolkit',
+    icon: 'https://www.google.com/favicon.ico',
+    description: 'Query IP location, weather forecast, route planning, etc. via a sample toolkit',
+    openapi_schema: toolkitSchema,
+    headers: [{ key: 'Authorization', value: 'Bearer access_token' }],
+    created_at: Math.floor(new Date(2025, 0, 21, 7, 35).getTime() / 1000),
+  },
+]
 const apiToolSummary = (provider: ApiToolProvider) => {
   const { openapi_schema, ...summary } = provider
   return { ...summary, tools: parseSchema(openapi_schema)?.tools ?? [] }
