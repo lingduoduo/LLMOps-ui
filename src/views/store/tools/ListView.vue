@@ -3,13 +3,13 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getBuiltinTools, getCategories } from '@/services/builtin-tool'
 import { apiPrefix, typeMap } from '@/config'
-import type { BuiltinToolProvider, ToolCategory } from '@/models/builtin-tool'
+import type { GetBuiltinToolsResponse, GetCategoriesResponse } from '@/models/builtin-tool'
 import moment from 'moment'
 
 // Declare variables
 const router = useRouter()
-const categories = reactive<ToolCategory[]>([])
-const providers = reactive<BuiltinToolProvider[]>([])
+const categories = reactive<GetCategoriesResponse['data']>([])
+const providers = reactive<GetBuiltinToolsResponse['data']>([])
 const loading = ref<boolean>(false)
 const error = ref<string>('')
 const category = ref<string>('all')

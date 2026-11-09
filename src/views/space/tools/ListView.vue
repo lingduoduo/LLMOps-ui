@@ -10,10 +10,13 @@ import {
   updateApiToolProvider,
   validateOpenAPISchema,
 } from '@/services/api-tool'
-import type { ApiToolHeader, ApiToolProvider } from '@/models/api-tool'
+import type { GetApiToolProvidersWithPageResponse } from '@/models/api-tool'
 import moment from 'moment'
 import ToolList from '@/components/ToolList.vue'
 import { useAccountStore } from '@/stores/account'
+
+type ApiToolProvider = GetApiToolProvidersWithPageResponse['data']['list'][number]
+type ApiToolHeader = { key: string; value: string }
 
 const PAGE_SIZE = 20
 // Limits enforced by the backend's CreateApiToolReq / UpdateApiToolProviderReq.

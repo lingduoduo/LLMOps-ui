@@ -1,5 +1,10 @@
 import { get, post } from '@/utils/request'
-import type { DebugAppResponse, AppListResponse } from '@/models/app'
+import type {
+  CreateAppRequest,
+  CreateAppResponse,
+  DebugAppResponse,
+  GetAppsWithPageResponse,
+} from '@/models/app'
 import type { BaseResponse } from '@/models/base'
 
 export const debugApp = (app_id: string, query: string, signal?: AbortSignal) => {
@@ -10,7 +15,7 @@ export const debugApp = (app_id: string, query: string, signal?: AbortSignal) =>
 }
 
 export const getApps = async (page: number, search: string, signal?: AbortSignal) => {
-  const response = await get<AppListResponse>('/apps', {
+  const response = await get<GetAppsWithPageResponse>('/apps', {
     params: { current_page: page, page_size: 20, search_word: search },
     signal,
   })
@@ -31,11 +36,8 @@ export const stopDebugChat = (appId: string, taskId: string) =>
     `/apps/${encodeURIComponent(appId)}/conversations/tasks/${encodeURIComponent(taskId)}/stop`,
   )
 
-export const createApp = async (
-  body: import('@/models/app').CreateAppRequest,
-  signal?: AbortSignal,
-) => {
-  const response = await post<BaseResponse<{ id: string }>>('/apps', { body, signal })
+export const createApp = async (body: CreateAppRequest, signal?: AbortSignal) => {
+  const response = await post<CreateAppResponse>('/apps', { body, signal })
   if (!response.data || typeof response.data.id !== 'string' || !response.data.id) {
     throw new Error(
       'The server returned an invalid application ID. Check your applications before trying again.',

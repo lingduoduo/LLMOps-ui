@@ -1,7 +1,7 @@
 import { post } from '@/utils/request'
 import { getAccessToken, setCredential, type Credential } from '@/utils/auth'
 import type { BaseResponse } from '@/models/base'
-import type { Account } from '@/models/account'
+import type { GetCurrentUserResponse } from '@/models/account'
 
 // Local development only: `import.meta.env.DEV` is false in production builds, so this
 // account cannot be used outside the Vite dev server and is dropped from the bundle.
@@ -9,7 +9,7 @@ export const DEV_LOGIN_ENABLED = import.meta.env.DEV
 const DEV_USERNAME = 'admin'
 const DEV_PASSWORD = 'admin'
 const DEV_ACCESS_TOKEN = 'dev-admin-token'
-export const DEV_ACCOUNT: Account = {
+export const DEV_ACCOUNT: GetCurrentUserResponse['data'] = {
   id: 'dev-admin',
   name: 'Admin (dev)',
   email: 'admin@localhost',

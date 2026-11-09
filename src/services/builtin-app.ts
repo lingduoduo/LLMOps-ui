@@ -1,9 +1,12 @@
-import type { BuiltinApp, BuiltinAppCategory } from '@/models/builtin-app'
-import type { BaseResponse } from '@/models/base'
+import type {
+  AddBuiltinAppToSpaceResponse,
+  GetBuiltinAppCategoriesResponse,
+  GetBuiltinAppsResponse,
+} from '@/models/builtin-app'
 import { get, post } from '@/utils/request'
 
 export async function getBuiltinAppCategories(signal?: AbortSignal) {
-  const { data } = await get<BaseResponse<BuiltinAppCategory[]>>('/builtin-apps/categories', {
+  const { data } = await get<GetBuiltinAppCategoriesResponse>('/builtin-apps/categories', {
     signal,
   })
   if (
@@ -14,7 +17,7 @@ export async function getBuiltinAppCategories(signal?: AbortSignal) {
   return data
 }
 export async function getBuiltinApps(signal?: AbortSignal) {
-  const { data } = await get<BaseResponse<BuiltinApp[]>>('/builtin-apps', { signal })
+  const { data } = await get<GetBuiltinAppsResponse>('/builtin-apps', { signal })
   if (
     !Array.isArray(data) ||
     data.some(
@@ -34,7 +37,7 @@ export async function getBuiltinApps(signal?: AbortSignal) {
   return data
 }
 export async function addBuiltinAppToSpace(builtinAppId: string, signal?: AbortSignal) {
-  const { data } = await post<BaseResponse<{ id: string }>>(
+  const { data } = await post<AddBuiltinAppToSpaceResponse>(
     '/builtin-apps/add-builtin-app-to-space',
     { body: { builtin_app_id: builtinAppId }, signal },
   )

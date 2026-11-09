@@ -1,11 +1,11 @@
-// Base response format.
+// Base response format
 export type BaseResponse<T> = {
   code: string
   message: string
   data: T
 }
 
-// Base paginated response format.
+// Base paginated response format
 export type BasePaginatorResponse<T> = BaseResponse<{
   list: Array<T>
   paginator: {

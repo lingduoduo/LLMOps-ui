@@ -1,29 +1,43 @@
-import type { BasePaginatorResponse, BaseResponse } from './base'
-import type { ToolInput } from './builtin-tool'
+import { type BasePaginatorResponse } from '@/models/base'
 
-export type ApiToolHeader = { key: string; value: string }
-export type ApiTool = { name: string; description: string; inputs?: ToolInput[] }
-export type ApiToolProvider = {
+// Paginated custom API tool provider list response
+export type GetApiToolProvidersWithPageResponse = BasePaginatorResponse<{
   id: string
   name: string
   icon: string
   description: string
-  headers: ApiToolHeader[]
-  tools: ApiTool[]
+  headers: Array<{ key: string; value: string }>
+  tools: Array<{
+    id: string
+    name: string
+    description: string
+    inputs: Array<{ name: string; type: string; description: string; required: boolean }>
+  }>
   created_at: number
-}
+}>
 
-export type GetApiToolProvidersWithPageResponse = BasePaginatorResponse<ApiToolProvider>
-
+// Create custom API tool provider request
 export type CreateApiToolProviderRequest = {
   name: string
   icon: string
   openapi_schema: string
-  headers: ApiToolHeader[]
+  headers: Array<{ key: string; value: string }>
 }
-export type UpdateApiToolProviderRequest = CreateApiToolProviderRequest
-export type ApiToolProviderDetails = CreateApiToolProviderRequest & {
+
+// Update custom API tool provider request
+export type UpdateApiToolProviderRequest = {
+  name: string
+  icon: string
+  openapi_schema: string
+  headers: Array<{ key: string; value: string }>
+}
+
+// Custom API tool provider details
+export type GetApiToolProviderResponse = {
   id: string
+  name: string
+  icon: string
+  openapi_schema: string
+  headers: Array<{ key: string; value: string }>
   created_at: number
 }
-export type GetApiToolProviderResponse = BaseResponse<ApiToolProviderDetails>

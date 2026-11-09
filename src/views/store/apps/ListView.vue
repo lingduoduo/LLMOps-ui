@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import type { BuiltinApp, BuiltinAppCategory } from '@/models/builtin-app'
+import type { GetBuiltinAppCategoriesResponse, GetBuiltinAppsResponse } from '@/models/builtin-app'
 import {
   getBuiltinApps,
   getBuiltinAppCategories,
   addBuiltinAppToSpace,
 } from '@/services/builtin-app'
 import { getAccessToken } from '@/utils/auth'
+
+type BuiltinApp = GetBuiltinAppsResponse['data'][number]
+type BuiltinAppCategory = GetBuiltinAppCategoriesResponse['data'][number]
 
 const router = useRouter()
 const apps = ref<BuiltinApp[]>([])
