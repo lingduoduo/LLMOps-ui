@@ -4,43 +4,59 @@ import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
-
-// Tabs share one search box; the term lives in the `search_word` query so each list can react.
-const tabs = [
-  { routeName: 'space-apps-list', label: 'AI Apps' },
-  { routeName: 'space-tools-list', label: 'Tools' },
-  { routeName: 'space-workflows-list', label: 'Workflows' },
-  { routeName: 'space-datasets-list', label: 'Knowledge Bases' },
-] as const
-
+const createType = ref<string>('')
 const queryWord = () => (typeof route.query.search_word === 'string' ? route.query.search_word : '')
 const searchWord = ref(queryWord())
-watch(
-  () => route.query.search_word,
-  () => (searchWord.value = queryWord()),
-)
 
+// Search event bound to the input box; an empty term clears the query
 const search = (value: string) => {
   const term = value.trim()
   void router.push({ path: route.path, query: term ? { search_word: term } : {} })
 }
-// The tools list opens its create dialog while the `create=tool` query is present.
-const createTool = () => void router.push({ query: { ...route.query, create: 'tool' } })
+
+// Update the value of createType
+const updateCreateType = (value: string) => {
+  createType.value = value
+}
+
+// Watch search_word in the route
+watch(
+  () => route.query.search_word,
+  () => {
+    searchWord.value = queryWord()
+  },
+)
+
+// Other pages (e.g. the tool marketplace) ask for a create dialog with `?create=<type>`;
+// hand it to the child page as createType and drop it from the URL
+watch(
+  () => route.query.create,
+  (create) => {
+    if (typeof create !== 'string' || !create) return
+    createType.value = create
+    const query = { ...route.query }
+    delete query.create
+    void router.replace({ query })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <div class="px-6 flex flex-col min-h-full">
     <div class="pt-6 sticky top-0 z-20 bg-white">
-      <!-- Page title and create button -->
+      <!-- Top title + create button -->
       <div class="flex items-center justify-between mb-6">
+        <!-- Left title -->
         <div class="flex items-center gap-2">
           <a-avatar :size="32" class="bg-blue-700">
             <icon-user :size="18" />
           </a-avatar>
           <h1 class="text-lg font-medium text-gray-900">Personal Space</h1>
         </div>
+        <!-- Create buttons -->
         <a-button
-          v-if="route.name === 'space-apps-list'"
+          v-if="route.path.startsWith('/space/apps')"
           type="primary"
           class="rounded-lg"
           @click="router.push({ name: 'space-apps-create' })"
@@ -48,30 +64,61 @@ const createTool = () => void router.push({ query: { ...route.query, create: 'to
           Create AI App
         </a-button>
         <a-button
-          v-if="route.name === 'space-tools-list'"
+          v-if="route.path.startsWith('/space/tools')"
           type="primary"
           class="rounded-lg"
-          @click="createTool"
+          @click="createType = 'tool'"
         >
           Create Custom Tool
         </a-button>
+        <a-button
+          v-if="route.path.startsWith('/space/workflows')"
+          type="primary"
+          class="rounded-lg"
+        >
+          Create Workflow
+        </a-button>
+        <a-button v-if="route.path.startsWith('/space/datasets')" type="primary" class="rounded-lg">
+          Create Knowledge Base
+        </a-button>
       </div>
-      <!-- Section tabs and search -->
+      <!-- Navigation + search box -->
       <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <!-- Left navigation -->
         <nav aria-label="Personal space sections" class="flex items-center gap-2">
           <router-link
-            v-for="tab in tabs"
-            :key="tab.routeName"
-            :to="{ name: tab.routeName }"
+            to="/space/apps"
             class="rounded-lg text-gray-700 px-3 h-8 leading-8 hover:bg-gray-200 transition-all"
             active-class="bg-gray-100"
           >
-            {{ tab.label }}
+            AI Apps
+          </router-link>
+          <router-link
+            to="/space/tools"
+            class="rounded-lg text-gray-700 px-3 h-8 leading-8 hover:bg-gray-200 transition-all"
+            active-class="bg-gray-100"
+          >
+            Tools
+          </router-link>
+          <router-link
+            to="/space/workflows"
+            class="rounded-lg text-gray-700 px-3 h-8 leading-8 hover:bg-gray-200 transition-all"
+            active-class="bg-gray-100"
+          >
+            Workflows
+          </router-link>
+          <router-link
+            to="/space/datasets"
+            class="rounded-lg text-gray-700 px-3 h-8 leading-8 hover:bg-gray-200 transition-all"
+            active-class="bg-gray-100"
+          >
+            Knowledge Bases
           </router-link>
         </nav>
+        <!-- Right search -->
         <a-input-search
           v-model="searchWord"
-          placeholder="Search by keyword"
+          placeholder="Enter a keyword to search"
           aria-label="Search personal space"
           class="w-[240px] bg-white rounded-lg border-gray-300"
           @search="search"
@@ -79,7 +126,9 @@ const createTool = () => void router.push({ query: { ...route.query, create: 'to
         />
       </div>
     </div>
-    <!-- Active section -->
-    <router-view />
+    <!-- Main content -->
+    <router-view :create-type="createType" @update-create-type="updateCreateType" />
   </div>
 </template>
+
+<style scoped></style>

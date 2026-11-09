@@ -20,7 +20,12 @@ async function render(path: string) {
         children: ['apps', 'tools', 'workflows', 'datasets'].map((section) => ({
           path: section,
           name: `space-${section}-list`,
-          component: { template: `<p>${section} list</p>` },
+          component: {
+            props: ['createType'],
+            emits: ['update-create-type'],
+            template: `<p>${section} list, create: {{ createType || 'none' }}</p>
+              <button type="button" @click="$emit('update-create-type', '')">handled</button>`,
+          },
         })),
       },
       { path: '/space/apps/create', name: 'space-apps-create', component: { template: '<p />' } },
@@ -47,7 +52,7 @@ describe('personal space layout', () => {
 
   it('stores the trimmed search term in the query and keeps it in the box', async () => {
     const { router, view } = await render('/space/apps?search_word=old')
-    const input = view.get<HTMLInputElement>('input[placeholder="Search by keyword"]')
+    const input = view.get<HTMLInputElement>('input[placeholder="Enter a keyword to search"]')
     expect(input.element.value).toBe('old')
     await input.setValue('  weather ')
     await input.trigger('keydown', { key: 'Enter' })
@@ -64,7 +69,14 @@ describe('personal space layout', () => {
     const create = view.findAll('button').find((el) => el.text() === 'Create Custom Tool')!
     await create.trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.query).toEqual({ search_word: 'x', create: 'tool' })
+    expect(view.text()).toContain('tools list, create: tool')
+    expect(router.currentRoute.value.query).toEqual({ search_word: 'x' })
+    // The child resets createType once it has opened its dialog.
+    await view
+      .findAll('button')
+      .find((el) => el.text() === 'handled')!
+      .trigger('click')
+    expect(view.text()).toContain('tools list, create: none')
 
     await router.push('/space/apps')
     await flushPromises()
@@ -74,5 +86,11 @@ describe('personal space layout', () => {
       .trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('space-apps-create')
+  })
+
+  it('turns a ?create link from another page into createType and drops it from the URL', async () => {
+    const { router, view } = await render('/space/tools?search_word=x&create=tool')
+    expect(view.text()).toContain('tools list, create: tool')
+    expect(router.currentRoute.value.query).toEqual({ search_word: 'x' })
   })
 })
