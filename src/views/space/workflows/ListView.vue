@@ -1,6 +1,7 @@
+<script setup lang="ts"></script>
+
 <template>
-  <a-empty
-    description="Workflows are coming soon."
-    class="h-[400px] flex flex-col items-center justify-center"
-  />
+  <p>Workflow list page</p>
 </template>
+
+<style scoped></style>

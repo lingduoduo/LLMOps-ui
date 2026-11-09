@@ -1,6 +1,7 @@
+<script setup lang="ts"></script>
+
 <template>
-  <a-empty
-    description="Knowledge bases are coming soon."
-    class="h-[400px] flex flex-col items-center justify-center"
-  />
+  <p>Knowledge base list page</p>
 </template>
+
+<style scoped></style>
