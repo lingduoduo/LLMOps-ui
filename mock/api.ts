@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 
@@ -169,8 +170,25 @@ const builtinProviders = [
     ],
   },
 ]
-const providerIcon = (name: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><text x="20" y="27" font-size="20" text-anchor="middle" font-family="sans-serif">${name.charAt(0).toUpperCase()}</text></svg>`
+// Each provider's icon file, copied from the backend's providers/<name>/_asset folder and
+// served the way BuiltinToolService.get_provider_icon does.
+const providerIcons: Record<string, string> = {
+  google: 'icon.png',
+  time: 'icon.svg',
+  duckduckgo: 'icon.svg',
+  dalle: 'icon.png',
+  gaode: 'icon.png',
+  wikipedia: 'icon.svg',
+}
+const iconMimeTypes: Record<string, string> = { png: 'image/png', svg: 'image/svg+xml' }
+const providerIcon = (name: string) => {
+  const file = Object.hasOwn(providerIcons, name) ? providerIcons[name] : undefined
+  if (!file) return undefined
+  return {
+    body: readFileSync(new URL(`./assets/builtin-tools/${name}/${file}`, import.meta.url)),
+    mimeType: iconMimeTypes[file.split('.').pop()!]!,
+  }
+}
 
 // Custom API tools, extracted from the OpenAPI schema the way the backend does.
 type ApiToolProvider = {
@@ -322,8 +340,17 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
   // Icons load through <img> tags, which carry no bearer token, so they are public.
   const builtinIcon = url.pathname.match(/^\/builtin-tools\/([^/]+)\/icon$/)
   if (req.method === 'GET' && builtinIcon) {
-    res.setHeader('Content-Type', 'image/svg+xml')
-    return res.end(providerIcon(decodeURIComponent(builtinIcon[1])))
+    const name = decodeURIComponent(builtinIcon[1])
+    const icon = providerIcon(name)
+    if (!icon) {
+      return sendJson(res, 404, {
+        code: 'not_found',
+        message: `Provider '${name}' not found`,
+        data: {},
+      })
+    }
+    res.setHeader('Content-Type', icon.mimeType)
+    return res.end(icon.body)
   }
   const token = bearerToken(req)
   if (!token) return unauthorized(res)
