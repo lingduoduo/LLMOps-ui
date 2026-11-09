@@ -91,7 +91,7 @@ const route = useRoute()
             <a-avatar :size="32" class="text-sm bg-blue-700">L</a-avatar>
             <!-- Personal information -->
             <div class="flex flex-col">
-              <div class="text-sm text-gray-900">Ling Huang</div>
+              <div class="text-sm text-gray-900">LLMOps</div>
               <div class="text-xs text-gray-500">linghypshen@gmail.com</div>
             </div>
           </div>

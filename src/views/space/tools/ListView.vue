@@ -289,7 +289,7 @@ watch(
               <icon-user />
             </a-avatar>
             <div class="text-xs text-gray-400">
-              Ling Huang · Edited
+              LLMOps · Edited
               {{ moment(provider.created_at).format('MM-DD HH:mm') }}
             </div>
           </div>
