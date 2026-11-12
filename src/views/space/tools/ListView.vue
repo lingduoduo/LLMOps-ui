@@ -9,10 +9,11 @@ import {
   updateApiToolProvider,
   validateOpenAPISchema,
 } from '@/services/api-tool'
-import type { CreateApiToolProviderRequest } from '@/models/api-tool'
+import { uploadImage } from '@/services/upload-file'
+import { type CreateApiToolProviderRequest } from '@/models/api-tool'
 import moment from 'moment/moment'
 import { typeMap } from '@/config'
-import { Message, Modal, type FormInstance, type ValidatedError } from '@arco-design/web-vue'
+import { Form, Message, Modal, type FileItem, type ValidatedError } from '@arco-design/web-vue'
 
 const route = useRoute()
 const props = defineProps({
@@ -31,12 +32,13 @@ const paginator = reactive({
   total_record: 0,
 })
 const form = reactive({
-  icon: 'https://picsum.photos/400',
+  fileList: [] as FileItem[],
+  icon: '',
   name: '',
   openapi_schema: '',
-  headers: [] as Array<{ key: string; value: string }>,
+  headers: [] as { key: string; value: string }[],
 })
-const formRef = ref<FormInstance | null>(null)
+const formRef = ref<InstanceType<typeof Form>>()
 const showIdx = ref<number>(-1)
 const loading = ref<boolean>(false)
 const showUpdateModal = ref<boolean>(false)
@@ -153,6 +155,7 @@ const handleUpdate = async () => {
 
     // 3. Update the form data
     formRef.value?.resetFields()
+    form.fileList = [{ uid: '1', name: 'Tool icon', url: data.icon }]
     form.icon = data.icon
     form.name = data.name
     form.openapi_schema = data.openapi_schema
@@ -207,28 +210,33 @@ const handleSubmit = async ({
     // 2. Put the modal button into the loading state to avoid repeated clicks
     submitLoading.value = true
 
-    // 3. Send a different request for each type
+    // 3. Send only the fields the API expects (not the upload's fileList)
+    const req: CreateApiToolProviderRequest = {
+      name: values.name,
+      icon: values.icon,
+      openapi_schema: values.openapi_schema,
+      headers: values.headers,
+    }
+
+    // 4. Send a different request for each type
     if (props.createType === 'tool') {
-      // 4. Call the API to send the create request
-      const resp = await createApiToolProvider(values as CreateApiToolProviderRequest)
+      // 5. Call the API to send the create request
+      const resp = await createApiToolProvider(req)
       Message.success(resp.message)
     } else if (showUpdateModal.value) {
-      // 5. Call the API to send the update API tool request
-      const resp = await updateApiToolProvider(
-        providers[showIdx.value]['id'],
-        values as CreateApiToolProviderRequest,
-      )
+      // 6. Call the API to send the update API tool request
+      const resp = await updateApiToolProvider(providers[showIdx.value]['id'], req)
       Message.success(resp.message)
     }
 
-    // 6. Follow-up: hide the modal and hide the drawer
+    // 7. Follow-up: hide the modal and hide the drawer
     handleCancel()
     showIdx.value = -1
   } finally {
     submitLoading.value = false
   }
 
-  // 7. Reload the data
+  // 8. Reload the data
   await initData()
 }
 
@@ -290,7 +298,7 @@ watch(
             </a-avatar>
             <div class="text-xs text-gray-400">
               LLMOps · Edited
-              {{ moment(provider.created_at).format('MM-DD HH:mm') }}
+              {{ moment(provider.created_at * 1000).format('MM-DD HH:mm') }}
             </div>
           </div>
         </a-card>
@@ -304,7 +312,7 @@ watch(
       </a-col>
     </a-row>
     <!-- Loader -->
-    <a-row v-if="providers.length > 0">
+    <a-row v-if="paginator.total_page >= 2">
       <!-- Loading data -->
       <a-col v-if="paginator.current_page <= paginator.total_page" :span="24" align="center">
         <a-space class="my-4">
@@ -425,16 +433,38 @@ watch(
       <div class="pt-6">
         <a-form ref="formRef" :model="form" @submit="handleSubmit" layout="vertical">
           <a-form-item
-            field="icon"
+            field="fileList"
             hide-label
             :rules="[{ required: true, message: 'The tool icon cannot be empty' }]"
           >
             <a-upload
-              v-model="form.icon"
               :limit="1"
               list-type="picture-card"
               accept="image/png, image/jpeg"
               class="!w-auto mx-auto"
+              v-model:file-list="form.fileList"
+              image-preview
+              :custom-request="
+                (option) => {
+                  const { fileItem, onSuccess, onError } = option
+                  uploadImage(fileItem.file as File)
+                    .then((resp) => {
+                      form.icon = resp.data.image_url
+                      onSuccess(resp)
+                    })
+                    .catch((error) => {
+                      Message.error(error instanceof Error ? error.message : 'Upload failed')
+                      onError(error)
+                    })
+                  return {}
+                }
+              "
+              :on-before-remove="
+                async () => {
+                  form.icon = ''
+                  return true
+                }
+              "
             />
           </a-form-item>
           <a-form-item
