@@ -248,7 +248,11 @@ const handleSubmit = async ({ errors }: { errors: Record<string, ValidatedError>
               :max-length="60"
             />
           </a-form-item>
-          <a-form-item field="description" label="Knowledge base description" asterisk-position="end">
+          <a-form-item
+            field="description"
+            label="Knowledge base description"
+            asterisk-position="end"
+          >
             <a-textarea
               v-model="form.description"
               :auto-size="{ minRows: 4, maxRows: 6 }"

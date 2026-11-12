@@ -8,6 +8,7 @@ import type { Plugin } from 'vite'
 // endpoints are served from in-memory data. Special inputs trigger failures:
 //   app search `error` -> HTTP 500 HTML page, `slow` -> 3s delay, `401` -> unauthorized
 //   debug query containing `error` -> error event, `cut` -> stream ends without agent_end
+// Knowledge bases (25 seeded, so the list pages) and image uploads are kept in memory too.
 
 const MOCK_PASSWORD = 'password'
 const revokedTokens = new Set<string>()
@@ -310,6 +311,62 @@ const apiToolSummary = (provider: ApiToolProvider) => {
   return { ...summary, tools: parseSchema(openapi_schema)?.tools ?? [] }
 }
 
+// Knowledge base data, shaped like the LLMOps dataset API responses.
+type Dataset = {
+  id: string
+  name: string
+  icon: string
+  description: string
+  document_count: number
+  hit_count: number
+  character_count: number
+  related_app_count: number
+  updated_at: number
+  created_at: number
+}
+const nowSeconds = () => Math.floor(Date.now() / 1000)
+const datasets: Dataset[] = Array.from({ length: 25 }, (_, index) => ({
+  id: `dataset-${index + 1}`,
+  name: `Mock Knowledge Base ${index + 1}`,
+  icon: '/api/builtin-tools/google/icon',
+  description: `A fake knowledge base #${index + 1} served by the mock API, used to test the list, settings and delete actions.`,
+  document_count: (index * 7) % 30,
+  hit_count: index * 3,
+  character_count: (index + 1) * 12345,
+  related_app_count: index % 4,
+  updated_at: nowSeconds() - index * 3600,
+  created_at: nowSeconds() - index * 3600,
+}))
+const validateDatasetBody = (body: Record<string, unknown>) => {
+  if (!String(body.name ?? '').trim()) return 'The knowledge base name cannot be empty.'
+  if (String(body.name).trim().length > 100) return 'The knowledge base name is too long.'
+  if (!String(body.icon ?? '').trim()) return 'The knowledge base icon cannot be empty.'
+  return null
+}
+
+// Uploaded images, served back at /upload-files/images/:id.
+const uploadedImages = new Map<string, { mimeType: string; body: Buffer }>()
+
+// Pulls the first file part out of a multipart/form-data body.
+const readMultipartFile = async (req: IncomingMessage) => {
+  const boundary = req.headers['content-type']?.match(/boundary=(?:"([^"]+)"|([^;]+))/)
+  if (!boundary) return null
+  const chunks: Buffer[] = []
+  for await (const chunk of req) chunks.push(chunk as Buffer)
+  const raw = Buffer.concat(chunks)
+  const delimiter = Buffer.from(`--${boundary[1] ?? boundary[2]}`)
+  const start = raw.indexOf(delimiter)
+  const headerEnd = raw.indexOf('\r\n\r\n', start)
+  const end = raw.indexOf(delimiter, headerEnd)
+  if (start === -1 || headerEnd === -1 || end === -1) return null
+  const headers = raw.subarray(start, headerEnd).toString()
+  return {
+    mimeType:
+      headers.match(/Content-Type:\s*([^\r\n]+)/i)?.[1].trim() ?? 'application/octet-stream',
+    body: raw.subarray(headerEnd + 4, end - 2),
+  }
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const sendJson = (res: ServerResponse, status: number, body: unknown) => {
@@ -403,6 +460,14 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
     }
     res.setHeader('Content-Type', icon.mimeType)
     return res.end(icon.body)
+  }
+  const uploadedImage = url.pathname.match(/^\/upload-files\/images\/([^/]+)$/)
+  if (req.method === 'GET' && uploadedImage) {
+    const image = uploadedImages.get(decodeURIComponent(uploadedImage[1]))
+    if (!image)
+      return sendJson(res, 404, { code: 'not_found', message: 'Image not found.', data: {} })
+    res.setHeader('Content-Type', image.mimeType)
+    return res.end(image.body)
   }
   const token = bearerToken(req)
   if (!token) return unauthorized(res)
@@ -513,6 +578,78 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
         headers: body.headers ?? [],
       })
       return sendJson(res, 200, { code: 'success', message: 'Tool updated.', data: {} })
+    }
+  }
+
+  if (route === 'POST /upload-files/image') {
+    const file = await readMultipartFile(req)
+    if (!file || !file.mimeType.startsWith('image/')) {
+      return validationError(res, 'Please upload a PNG or JPEG image.')
+    }
+    const id = randomUUID()
+    uploadedImages.set(id, file)
+    return ok(res, { image_url: `/api/upload-files/images/${id}` })
+  }
+
+  if (route === 'GET /datasets') {
+    const search = (url.searchParams.get('search_word') ?? '').toLowerCase()
+    const page = Number(url.searchParams.get('current_page')) || 1
+    const size = Number(url.searchParams.get('page_size')) || 20
+    const matches = datasets.filter((d) => d.name.toLowerCase().includes(search))
+    return ok(res, {
+      list: matches.slice((page - 1) * size, page * size),
+      paginator: {
+        total_page: Math.ceil(matches.length / size),
+        total_record: matches.length,
+        current_page: page,
+        page_size: size,
+      },
+    })
+  }
+  if (route === 'POST /datasets') {
+    const body = await readBody(req)
+    const invalid = validateDatasetBody(body)
+    if (invalid) return validationError(res, invalid)
+    datasets.unshift({
+      id: randomUUID(),
+      name: String(body.name).trim(),
+      icon: String(body.icon).trim(),
+      description: String(body.description ?? '').trim(),
+      document_count: 0,
+      hit_count: 0,
+      character_count: 0,
+      related_app_count: 0,
+      updated_at: nowSeconds(),
+      created_at: nowSeconds(),
+    })
+    return sendJson(res, 200, { code: 'success', message: 'Knowledge base created.', data: {} })
+  }
+  const dataset = url.pathname.match(/^\/datasets\/([^/]+?)(\/delete)?$/)
+  if (dataset) {
+    const index = datasets.findIndex((d) => d.id === decodeURIComponent(dataset[1]))
+    if (index === -1) {
+      return sendJson(res, 404, {
+        code: 'not_found',
+        message: 'Knowledge base not found.',
+        data: {},
+      })
+    }
+    if (req.method === 'GET' && !dataset[2]) return ok(res, datasets[index])
+    if (req.method === 'POST' && dataset[2]) {
+      datasets.splice(index, 1)
+      return sendJson(res, 200, { code: 'success', message: 'Knowledge base deleted.', data: {} })
+    }
+    if (req.method === 'POST') {
+      const body = await readBody(req)
+      const invalid = validateDatasetBody(body)
+      if (invalid) return validationError(res, invalid)
+      Object.assign(datasets[index], {
+        name: String(body.name).trim(),
+        icon: String(body.icon).trim(),
+        description: String(body.description ?? '').trim(),
+        updated_at: nowSeconds(),
+      })
+      return sendJson(res, 200, { code: 'success', message: 'Knowledge base updated.', data: {} })
     }
   }
 

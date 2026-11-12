@@ -63,7 +63,12 @@ watch(
         >
           Create Workflow
         </a-button>
-        <a-button v-if="route.path.startsWith('/space/datasets')" type="primary" class="rounded-lg">
+        <a-button
+          v-if="route.path.startsWith('/space/datasets')"
+          type="primary"
+          class="rounded-lg"
+          @click="createType = 'dataset'"
+        >
           Create Knowledge Base
         </a-button>
       </div>
@@ -109,8 +114,12 @@ watch(
         />
       </div>
     </div>
-    <!-- Main content -->
-    <router-view :create-type="createType" @update-create-type="updateCreateType" />
+    <!-- Main content: fills the remaining height and scrolls on its own -->
+    <router-view
+      class="flex-1 min-h-0 overflow-auto"
+      :create-type="createType"
+      @update-create-type="updateCreateType"
+    />
   </div>
 </template>
 
