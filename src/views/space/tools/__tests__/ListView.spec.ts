@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import ArcoVue from '@arco-design/web-vue'
+import ArcoVue, { Message } from '@arco-design/web-vue'
 import { createPinia } from 'pinia'
 import ListView from '../ListView.vue'
 import {
@@ -188,7 +188,6 @@ describe('personal space tools', () => {
       [
         'weather',
         {
-          fileList: [{ uid: '1', name: 'Tool icon', url: 'https://example.com/weather.png' }],
           icon: 'https://example.com/weather.png',
           name: 'Updated Weather',
           openapi_schema: '{}',
@@ -227,17 +226,29 @@ describe('personal space tools', () => {
     await type(SCHEMA, schema)
     expect(body().textContent).toContain('getWeather')
     await submit()
-    expect(sent).toHaveLength(1)
-    expect(sent[0]).toEqual([
-      expect.objectContaining({
-        icon: 'https://example.com/uploaded.png',
-        name: 'Weather',
-        openapi_schema: schema,
-        headers: [],
-      }),
+    expect(sent).toEqual([
+      [
+        {
+          icon: 'https://example.com/uploaded.png',
+          name: 'Weather',
+          openapi_schema: schema,
+          headers: [],
+        },
+      ],
     ])
-    expect((sent[0][0] as { fileList: unknown[] }).fileList).toHaveLength(1)
     expect(view.emitted('update-create-type')).toEqual([['']])
+  })
+
+  it('shows the error and marks the icon as failed when the upload fails', async () => {
+    vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
+    vi.mocked(uploadImage).mockRejectedValue(new Error('Image too large'))
+    const error = vi.spyOn(Message, 'error')
+    await render('/space/tools', 'tool')
+    await pickIcon()
+    expect(error).toHaveBeenCalledWith('Image too large')
+    expect(
+      body().querySelector('.arco-modal .arco-upload-list-picture-status-error'),
+    ).not.toBeNull()
   })
 
   it('validates the schema when the textarea loses focus', async () => {

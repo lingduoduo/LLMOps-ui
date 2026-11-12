@@ -210,28 +210,33 @@ const handleSubmit = async ({
     // 2. Put the modal button into the loading state to avoid repeated clicks
     submitLoading.value = true
 
-    // 3. Send a different request for each type
+    // 3. Send only the fields the API expects (not the upload's fileList)
+    const req: CreateApiToolProviderRequest = {
+      name: values.name,
+      icon: values.icon,
+      openapi_schema: values.openapi_schema,
+      headers: values.headers,
+    }
+
+    // 4. Send a different request for each type
     if (props.createType === 'tool') {
-      // 4. Call the API to send the create request
-      const resp = await createApiToolProvider(values as CreateApiToolProviderRequest)
+      // 5. Call the API to send the create request
+      const resp = await createApiToolProvider(req)
       Message.success(resp.message)
     } else if (showUpdateModal.value) {
-      // 5. Call the API to send the update API tool request
-      const resp = await updateApiToolProvider(
-        providers[showIdx.value]['id'],
-        values as CreateApiToolProviderRequest,
-      )
+      // 6. Call the API to send the update API tool request
+      const resp = await updateApiToolProvider(providers[showIdx.value]['id'], req)
       Message.success(resp.message)
     }
 
-    // 6. Follow-up: hide the modal and hide the drawer
+    // 7. Follow-up: hide the modal and hide the drawer
     handleCancel()
     showIdx.value = -1
   } finally {
     submitLoading.value = false
   }
 
-  // 7. Reload the data
+  // 8. Reload the data
   await initData()
 }
 
@@ -442,10 +447,15 @@ watch(
               :custom-request="
                 (option) => {
                   const { fileItem, onSuccess, onError } = option
-                  uploadImage(fileItem.file as File).then((resp) => {
-                    form.icon = resp.data.image_url
-                    onSuccess(resp)
-                  })
+                  uploadImage(fileItem.file as File)
+                    .then((resp) => {
+                      form.icon = resp.data.image_url
+                      onSuccess(resp)
+                    })
+                    .catch((error) => {
+                      Message.error(error instanceof Error ? error.message : 'Upload failed')
+                      onError(error)
+                    })
                   return {}
                 }
               "
