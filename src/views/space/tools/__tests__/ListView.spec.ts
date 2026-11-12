@@ -12,6 +12,7 @@ import {
   updateApiToolProvider,
   validateOpenAPISchema,
 } from '@/services/api-tool'
+import { uploadImage } from '@/services/upload-file'
 import type { GetApiToolProvidersWithPageResponse } from '@/models/api-tool'
 
 type ApiToolProvider = GetApiToolProvidersWithPageResponse['data']['list'][number]
@@ -24,6 +25,7 @@ vi.mock('@/services/api-tool', () => ({
   updateApiToolProvider: vi.fn(),
   validateOpenAPISchema: vi.fn(),
 }))
+vi.mock('@/services/upload-file', () => ({ uploadImage: vi.fn() }))
 
 const ok = <T>(data: T, message = '') => ({ code: 'success', message, data })
 const page = (list: ApiToolProvider[], current_page = 1, total_page = 1) =>
@@ -98,6 +100,15 @@ const type = async (selector: string, value: string) => {
 }
 const NAME = 'input[placeholder="Enter a tool name and make sure its meaning is clear"]'
 const SCHEMA = 'textarea[placeholder="Enter your OpenAPI schema here"]'
+// Pick an icon in the upload's hidden file input.
+const pickIcon = async () => {
+  const input = body().querySelector<HTMLInputElement>('.arco-modal input[type="file"]')!
+  const file = new File(['png'], 'icon.png', { type: 'image/png' })
+  Object.defineProperty(input, 'files', { value: [file], configurable: true })
+  input.dispatchEvent(new Event('change'))
+  await settle()
+  return file
+}
 const submit = async () => {
   body().querySelector('.arco-modal form')!.dispatchEvent(new Event('submit'))
   await settle()
@@ -126,6 +137,7 @@ describe('personal space tools', () => {
     expect(getApiToolProvidersWithPage).toHaveBeenLastCalledWith(1, 20, 'wea')
     expect(view.text()).toContain('Loading')
     expect(view.text()).toContain('Provider Tool a · 1 tools')
+    expect(view.text()).toContain('LLMOps · Edited')
 
     await scrollToBottom(view)
     expect(getApiToolProvidersWithPage).toHaveBeenLastCalledWith(2, 20, 'wea')
@@ -176,6 +188,7 @@ describe('personal space tools', () => {
       [
         'weather',
         {
+          fileList: [{ uid: '1', name: 'Tool icon', url: 'https://example.com/weather.png' }],
           icon: 'https://example.com/weather.png',
           name: 'Updated Weather',
           openapi_schema: '{}',
@@ -204,6 +217,9 @@ describe('personal space tools', () => {
     vi.mocked(createApiToolProvider).mockImplementation(recordCalls())
     const view = await render('/space/tools', 'tool')
     expect(body().textContent).toContain('Create Tool')
+    vi.mocked(uploadImage).mockResolvedValue(ok({ image_url: 'https://example.com/uploaded.png' }))
+    const file = await pickIcon()
+    expect(uploadImage).toHaveBeenCalledWith(file)
     const schema = JSON.stringify({
       paths: { '/weather': { get: { operationId: 'getWeather', description: 'Forecast' } } },
     })
@@ -211,9 +227,16 @@ describe('personal space tools', () => {
     await type(SCHEMA, schema)
     expect(body().textContent).toContain('getWeather')
     await submit()
-    expect(sent).toEqual([
-      [{ icon: 'https://picsum.photos/400', name: 'Weather', openapi_schema: schema, headers: [] }],
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toEqual([
+      expect.objectContaining({
+        icon: 'https://example.com/uploaded.png',
+        name: 'Weather',
+        openapi_schema: schema,
+        headers: [],
+      }),
     ])
+    expect((sent[0][0] as { fileList: unknown[] }).fileList).toHaveLength(1)
     expect(view.emitted('update-create-type')).toEqual([['']])
   })
 
@@ -226,10 +249,11 @@ describe('personal space tools', () => {
     expect(validateOpenAPISchema).toHaveBeenCalledWith('{}')
   })
 
-  it('requires a name and a schema before calling the backend', async () => {
+  it('requires an icon, a name and a schema before calling the backend', async () => {
     vi.mocked(getApiToolProvidersWithPage).mockResolvedValue(page([]))
     await render('/space/tools', 'tool')
     await submit()
+    expect(body().textContent).toContain('The tool icon cannot be empty')
     expect(body().textContent).toContain('The tool name cannot be empty')
     expect(body().textContent).toContain('The OpenAPI schema cannot be empty')
     expect(createApiToolProvider).not.toHaveBeenCalled()
