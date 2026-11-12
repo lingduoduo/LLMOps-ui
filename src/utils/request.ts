@@ -190,3 +190,9 @@ export const get = <T>(url: string, options: FetchOptionType = {}) =>
 
 export const post = <T>(url: string, options: FetchOptionType = {}) =>
   request<T>(url, { ...options, method: 'POST' })
+
+// Upload multipart form data (e.g. an image or file) with the same auth, timeout and error handling as post.
+export const upload = <T>(url: string, options: { data: FormData } & FetchOptionType) => {
+  const { data, ...rest } = options
+  return request<T>(url, { ...rest, method: 'POST', body: data })
+}
