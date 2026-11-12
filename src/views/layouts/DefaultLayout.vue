@@ -15,9 +15,9 @@ const route = useRoute()
 </script>
 
 <template>
-  <a-layout has-sider class="h-full">
+  <a-layout has-sider class="h-screen overflow-hidden">
     <!-- Sidebar -->
-    <a-layout-sider :width="240" class="min-h-screen bg-gray-50 p-2 shadow-none">
+    <a-layout-sider :width="240" class="h-full bg-gray-50 p-2 shadow-none">
       <div class="bg-white h-full rounded-lg px-2 py-4 flex flex-col justify-between">
         <!-- Upper part -->
         <div class="">
@@ -112,8 +112,8 @@ const route = useRoute()
         </a-dropdown>
       </div>
     </a-layout-sider>
-    <!-- Right content -->
-    <a-layout-content>
+    <!-- Right content: fixed to the screen height, so pages scroll inside it -->
+    <a-layout-content class="h-full overflow-auto">
       <router-view />
     </a-layout-content>
   </a-layout>
