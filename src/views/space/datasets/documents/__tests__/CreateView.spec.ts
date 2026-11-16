@@ -171,6 +171,80 @@ describe('add documents page', () => {
     expect(body().textContent).toContain('Completed')
   })
 
+  it('marks a failed upload and blocks the next step until it is removed', async () => {
+    const error = vi.spyOn(Message, 'error').mockImplementation(() => ({ close: vi.fn() }))
+    vi.mocked(uploadFile).mockRejectedValue(new Error('File size must not exceed 15 MB'))
+    await render()
+
+    await pickFile('big.pdf')
+    expect(error).toHaveBeenCalledWith('big.pdf: File size must not exceed 15 MB')
+    expect(body().querySelector('.arco-upload-list-item-error')).not.toBeNull()
+
+    await click('Next')
+    expect(error).toHaveBeenLastCalledWith(
+      'Remove the files that failed to upload before continuing',
+    )
+    expect(createDocuments).not.toHaveBeenCalled()
+  })
+
+  it('accepts every document type the backend allows and shows the 15MB limit', async () => {
+    await render()
+    const accept = body().querySelector('input[type="file"]')!.getAttribute('accept')
+    expect(accept).toBe('.doc,.docx,.pdf,.txt,.md,.markdown,.html,.htm,.xlsx,.xls,.csv')
+    expect(body().textContent).toContain('each no larger than 15MB')
+  })
+
+  it('limits the chunk overlap to half the max segment length', async () => {
+    vi.mocked(getDocumentsStatus).mockResolvedValue(ok([status({ status: 'completed' })]))
+    await render()
+    await pickFile()
+    await click('Next')
+    const custom = [...body().querySelectorAll<HTMLElement>('.font-bold')].find(
+      (el) => el.textContent === 'Custom',
+    )!
+    custom.click()
+    await settle()
+
+    const [, overlap] = body().querySelectorAll<HTMLInputElement>('.arco-input-number input')
+    expect(overlap.placeholder).toBe('Enter a number from 0 to 250')
+    // Enter an overlap that fits, then lower the max segment length below twice the overlap:
+    // the overlap is capped at the new maximum.
+    const [sizeInput, overlapInput] = wrapper!.findAllComponents({ name: 'InputNumber' })
+    overlapInput.vm.$emit('update:modelValue', 150)
+    await settle()
+    sizeInput.vm.$emit('update:modelValue', 200)
+    await settle()
+    expect(overlap.placeholder).toBe('Enter a number from 0 to 100')
+    expect(overlap.value).toBe('100')
+    await click('Next')
+
+    expect(createDocuments).toHaveBeenCalledWith(
+      'ds-1',
+      expect.objectContaining({
+        rule: expect.objectContaining({
+          segment: { separators: ['\n'], chunk_size: 200, chunk_overlap: 100 },
+        }),
+      }),
+    )
+  })
+
+  it('tells the user when polling stops before processing finishes', async () => {
+    vi.mocked(getDocumentsStatus).mockResolvedValue(ok([status()]))
+    await render()
+    await pickFile()
+    await click('Next')
+    vi.useFakeTimers()
+    await click('Next')
+    expect(body().textContent).not.toContain('taking longer than expected')
+
+    await vi.advanceTimersByTimeAsync(29 * 5000)
+    expect(getDocumentsStatus).toHaveBeenCalledTimes(30)
+    expect(body().textContent).toContain('Processing is taking longer than expected')
+
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(getDocumentsStatus).toHaveBeenCalledTimes(30)
+  })
+
   it('polls the status every 5 seconds until every document is done', async () => {
     vi.mocked(getDocumentsStatus)
       .mockResolvedValueOnce(ok([status()]))

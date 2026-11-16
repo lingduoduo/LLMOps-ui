@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { onUnmounted, reactive, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { uploadFile } from '@/services/upload-file'
 import { createDocuments, getDocumentsStatus } from '@/services/dataset'
@@ -26,6 +26,10 @@ const customRuleFormRef = ref<InstanceType<typeof Form>>()
 const createDocumentsLoading = ref(false)
 const documents = reactive<Array<any>>([])
 let fetchCount = 0
+// Set when polling stops at the request limit while documents are still processing
+const pollingTimedOut = ref(false)
+// The backend only accepts a chunk overlap of up to half the max segment length
+const maxChunkOverlap = computed(() => Math.floor((createDocumentsForm.rule.chunk_size ?? 0) * 0.5))
 
 // 2. Define the next-step handler
 const nextStep = async () => {
@@ -36,7 +40,12 @@ const nextStep = async () => {
       Message.error('Please upload the files to process')
       return
     }
-    // 2.3 Check that the files have finished uploading
+    // 2.3 Check that no file failed to upload
+    if (createDocumentsForm.file_list.some((fileItem) => fileItem.status === 'error')) {
+      Message.error('Remove the files that failed to upload before continuing')
+      return
+    }
+    // 2.4 Check that the files have finished uploading
     const isUploaded = createDocumentsForm.file_list.every(
       (fileItem) => fileItem.response?.data?.id,
     )
@@ -114,14 +123,20 @@ const fetDocumentsStatus = async () => {
   // 3.2 Sync the document status data
   documents.splice(0, documents.length, ...data)
 
-  // 3.3 Stop if the request count exceeds the limit
-  if (fetchCount >= 30) stopTimer()
-
-  // 3.4 Stop once every document is done (completed or failed)
+  // 3.3 Stop once every document is done (completed or failed)
   const isCompleted = data.every(
     (document) => document.status === 'completed' || document.status === 'error',
   )
-  if (isCompleted) stopTimer()
+  if (isCompleted) {
+    stopTimer()
+    return
+  }
+
+  // 3.4 Stop if the request count exceeds the limit, and tell the user
+  if (fetchCount >= 30) {
+    stopTimer()
+    pollingTimedOut.value = true
+  }
 }
 
 // 5. Define the function that starts the timer
@@ -179,18 +194,25 @@ onUnmounted(() => {
         <a-upload
           v-model:file-list="createDocumentsForm.file_list"
           draggable
-          accept=".doc,.docx,.pdf,.txt,.md,.markdown"
+          accept=".doc,.docx,.pdf,.txt,.md,.markdown,.html,.htm,.xlsx,.xls,.csv"
           :limit="10"
           multiple
-          tip="Supports PDF, TXT, DOC, DOCX and MD. Upload up to 10 files, each no larger than 10MB"
+          tip="Supports PDF, TXT, DOC, DOCX, MD, HTML, XLSX, XLS and CSV. Upload up to 10 files, each no larger than 15MB"
           :custom-request="
             (async (option: any) => {
-              // 1. Extract the file item and the success callback from the options
-              const { fileItem, onSuccess } = option
+              // 1. Extract the file item and the success and error callbacks from the options
+              const { fileItem, onSuccess, onError } = option
 
-              // 2. Call the API to upload the file and add the data
-              const resp = await uploadFile(fileItem.file)
-              onSuccess(resp)
+              // 2. Call the API to upload the file and add the data; mark the file failed on error
+              try {
+                const resp = await uploadFile(fileItem.file)
+                onSuccess(resp)
+              } catch (error) {
+                onError(error)
+                Message.error(
+                  `${fileItem.name}: ${error instanceof Error ? error.message : 'Upload failed'}`,
+                )
+              }
             }) as any
           "
         />
@@ -256,10 +278,10 @@ onUnmounted(() => {
                 <a-input-number
                   v-model:model-value="createDocumentsForm.rule.chunk_overlap"
                   :min="0"
-                  :max="500"
+                  :max="maxChunkOverlap"
                   :step="1"
                   :default-value="50"
-                  placeholder="Enter a number from 0 to 500"
+                  :placeholder="`Enter a number from 0 to ${maxChunkOverlap}`"
                 />
               </a-form-item>
               <a-form-item field="pre_process_rules" label="Text Preprocessing Rules">
@@ -283,6 +305,11 @@ onUnmounted(() => {
       <div v-else class="">
         <!-- Data processing status message -->
         <div class="text-gray-900 mb-4 text-base">The server is processing</div>
+        <!-- Shown when polling stopped before every document finished -->
+        <a-alert v-if="pollingTimedOut" type="warning" class="mb-4 rounded-lg">
+          Processing is taking longer than expected, so this page stopped updating. Check the
+          documents list for the latest status.
+        </a-alert>
         <!-- Documents being processed -->
         <div class="flex flex-col gap-2">
           <div
