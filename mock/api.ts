@@ -386,6 +386,77 @@ const datasetQueries = new Map<
   { id: string; dataset_id: string; query: string; source: string; created_at: number }[]
 >()
 
+// Uploaded documents, by upload file id, and the processing batches made from them.
+// Processing is simulated from the batch's start time: about 2s parsing, 1s splitting,
+// then one of 4 segments indexed every 2s. Files with "error" in the name fail.
+type UploadedFile = { id: string; name: string; size: number; extension: string; mime_type: string }
+const uploadedFiles = new Map<string, UploadedFile>()
+const ALLOWED_DOCUMENT_EXTENSIONS = [
+  'txt',
+  'markdown',
+  'md',
+  'pdf',
+  'html',
+  'htm',
+  'xlsx',
+  'xls',
+  'doc',
+  'docx',
+  'csv',
+]
+const processingBatches = new Map<
+  string,
+  {
+    datasetId: string
+    startedAt: number
+    items: { document: DatasetDocument; file: UploadedFile }[]
+  }
+>()
+const batchStatus = (batch: NonNullable<ReturnType<typeof processingBatches.get>>) => {
+  const elapsed = (Date.now() - batch.startedAt) / 1000
+  const startedAt = Math.floor(batch.startedAt / 1000)
+  const segmentCount = elapsed >= 2 ? 4 : 0
+  return batch.items.map(({ document, file }) => {
+    const failed = file.name.toLowerCase().includes('error') && elapsed >= 2
+    const completedSegments = Math.min(segmentCount, Math.max(0, Math.floor((elapsed - 3) / 2)))
+    const status = failed
+      ? 'error'
+      : elapsed < 2
+        ? 'parsing'
+        : elapsed < 3
+          ? 'splitting'
+          : completedSegments < segmentCount
+            ? 'indexing'
+            : 'completed'
+    // Keep the document list in step with the processing state.
+    Object.assign(document, {
+      status,
+      error: failed ? 'The mock document failed to parse.' : '',
+      enabled: status === 'completed',
+      character_count: status === 'completed' ? file.size : 0,
+    })
+    return {
+      id: document.id,
+      name: file.name,
+      size: file.size,
+      extension: file.extension,
+      mime_type: file.mime_type,
+      position: document.position,
+      segment_count: failed ? 0 : segmentCount,
+      completed_segment_count: failed ? 0 : completedSegments,
+      error: document.error,
+      status,
+      processing_started_at: startedAt,
+      parsing_completed_at: elapsed >= 2 ? startedAt + 2 : 0,
+      splitting_completed_at: elapsed >= 3 ? startedAt + 3 : 0,
+      indexing_completed_at: status === 'completed' ? startedAt + 11 : 0,
+      completed_at: status === 'completed' ? startedAt + 11 : 0,
+      stopped_at: failed ? startedAt + 2 : 0,
+      created_at: document.created_at,
+    }
+  })
+}
+
 // Uploaded images, served back at /upload-files/images/:id.
 const uploadedImages = new Map<string, { mimeType: string; body: Buffer }>()
 
@@ -405,6 +476,7 @@ const readMultipartFile = async (req: IncomingMessage) => {
   return {
     mimeType:
       headers.match(/Content-Type:\s*([^\r\n]+)/i)?.[1].trim() ?? 'application/octet-stream',
+    name: headers.match(/filename="([^"]*)"/i)?.[1] ?? 'file',
     body: raw.subarray(headerEnd + 4, end - 2),
   }
 }
@@ -633,6 +705,31 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
     return ok(res, { image_url: `/api/upload-files/images/${id}` })
   }
 
+  if (route === 'POST /upload-files/file') {
+    const file = await readMultipartFile(req)
+    const extension = file?.name.split('.').pop()?.toLowerCase() ?? ''
+    if (!file || !ALLOWED_DOCUMENT_EXTENSIONS.includes(extension)) {
+      return validationError(res, `The .${extension} extension is not allowed for upload`)
+    }
+    if (file.body.length > 15 * 1024 * 1024) {
+      return validationError(res, 'File size must not exceed 15 MB')
+    }
+    const uploaded = {
+      id: randomUUID(),
+      name: file.name,
+      size: file.body.length,
+      extension,
+      mime_type: file.mimeType,
+    }
+    uploadedFiles.set(uploaded.id, uploaded)
+    return ok(res, {
+      ...uploaded,
+      account_id: 'mock-user',
+      key: `mock/${uploaded.id}.${extension}`,
+      created_at: nowSeconds(),
+    })
+  }
+
   if (route === 'GET /datasets') {
     const search = (url.searchParams.get('search_word') ?? '').toLowerCase()
     const page = Number(url.searchParams.get('current_page')) || 1
@@ -738,6 +835,60 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
           page_size: size,
         },
       })
+    }
+
+    if (req.method === 'POST' && resource === 'documents' && !rest) {
+      const body = await readBody(req)
+      const ids = Array.isArray(body.upload_file_ids) ? body.upload_file_ids.map(String) : []
+      if (ids.length === 0 || ids.length > 10) {
+        return validationError(res, 'Number of new documents must be within 0–10')
+      }
+      if (!['automatic', 'custom'].includes(String(body.process_type))) {
+        return validationError(res, 'Invalid processing type')
+      }
+      const files = [...new Set(ids)].map((id) => uploadedFiles.get(id))
+      if (files.some((file) => !file)) {
+        return sendJson(res, 200, { code: 'fail', message: 'Upload file not found.', data: {} })
+      }
+      const batch = randomUUID()
+      const position = Math.max(0, ...documents.map((d) => d.position))
+      const items = files.map((file, index) => {
+        const document: DatasetDocument = {
+          id: randomUUID(),
+          name: file!.name,
+          character_count: 0,
+          hit_count: 0,
+          position: position + index + 1,
+          enabled: false,
+          disabled_at: 0,
+          status: 'waiting',
+          error: '',
+          updated_at: nowSeconds(),
+          created_at: nowSeconds(),
+        }
+        return { document, file: file! }
+      })
+      documents.unshift(...items.map((item) => item.document))
+      owner.document_count = documents.length
+      processingBatches.set(batch, { datasetId: owner.id, startedAt: Date.now(), items })
+      return ok(res, {
+        documents: items.map(({ document }) => ({
+          id: document.id,
+          name: document.name,
+          status: document.status,
+          created_at: document.created_at,
+        })),
+        batch,
+      })
+    }
+
+    const batchPath = rest.match(/^\/batch\/([^/]+)$/)
+    if (req.method === 'GET' && resource === 'documents' && batchPath) {
+      const batch = processingBatches.get(decodeURIComponent(batchPath[1]))
+      if (!batch || batch.datasetId !== owner.id) {
+        return sendJson(res, 404, { code: 'not_found', message: 'Batch not found.', data: {} })
+      }
+      return ok(res, batchStatus(batch))
     }
 
     const documentPath = rest.match(/^\/([^/]+?)(\/name|\/enabled|\/delete)?$/)
