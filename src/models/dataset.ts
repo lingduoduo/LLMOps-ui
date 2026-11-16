@@ -101,6 +101,7 @@ export type HitResponse = BaseResponse<
     dataset_id: string
     score: number
     position: number
+    content: string
     keywords: string[]
     character_count: number
     token_count: number
