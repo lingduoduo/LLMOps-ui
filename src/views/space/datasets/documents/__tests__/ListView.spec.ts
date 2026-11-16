@@ -255,7 +255,8 @@ describe('documents ListView', () => {
     await render()
 
     await pickRowAction('Delete')
-    button('OK').click()
+    // Modal.warning() ignores the app locale, so its OK button keeps Arco's default label.
+    button('确定').click()
     await settle()
 
     expect(deleteDocument).toHaveBeenCalledWith('ds-1', 'a')
