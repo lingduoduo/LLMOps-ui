@@ -344,6 +344,48 @@ const validateDatasetBody = (body: Record<string, unknown>) => {
   return null
 }
 
+// Documents and recent retrieval queries per knowledge base, built on first use so each
+// knowledge base gets document_count documents. Every seventh document failed to process.
+type DatasetDocument = {
+  id: string
+  name: string
+  character_count: number
+  hit_count: number
+  position: number
+  enabled: boolean
+  disabled_at: number
+  status: string
+  error: string
+  updated_at: number
+  created_at: number
+}
+const datasetDocuments = new Map<string, DatasetDocument[]>()
+const documentsOf = (dataset: Dataset) => {
+  if (!datasetDocuments.has(dataset.id)) {
+    datasetDocuments.set(
+      dataset.id,
+      Array.from({ length: dataset.document_count }, (_, index) => ({
+        id: `${dataset.id}-document-${index + 1}`,
+        name: `Mock Document ${index + 1}.md`,
+        character_count: (index + 1) * 1234,
+        hit_count: index * 2,
+        position: index + 1,
+        enabled: index % 7 !== 6,
+        disabled_at: 0,
+        status: index % 7 === 6 ? 'error' : 'completed',
+        error: index % 7 === 6 ? 'The mock document failed to parse.' : '',
+        updated_at: nowSeconds() - index * 600,
+        created_at: nowSeconds() - index * 600,
+      })),
+    )
+  }
+  return datasetDocuments.get(dataset.id)!
+}
+const datasetQueries = new Map<
+  string,
+  { id: string; dataset_id: string; query: string; source: string; created_at: number }[]
+>()
+
 // Uploaded images, served back at /upload-files/images/:id.
 const uploadedImages = new Map<string, { mimeType: string; body: Buffer }>()
 
@@ -624,6 +666,131 @@ const handle = async (req: IncomingMessage, res: ServerResponse) => {
     })
     return sendJson(res, 200, { code: 'success', message: 'Knowledge base created.', data: {} })
   }
+  const datasetChild = url.pathname.match(/^\/datasets\/([^/]+)\/(documents|hit|queries)(\/.*)?$/)
+  if (datasetChild) {
+    const [, datasetId, resource, rest = ''] = datasetChild
+    const owner = datasets.find((d) => d.id === decodeURIComponent(datasetId))
+    if (!owner) {
+      return sendJson(res, 404, {
+        code: 'not_found',
+        message: 'Knowledge base not found.',
+        data: {},
+      })
+    }
+    const documents = documentsOf(owner)
+    const queries = datasetQueries.get(owner.id) ?? []
+
+    if (req.method === 'GET' && resource === 'queries' && !rest) return ok(res, queries)
+    if (req.method === 'POST' && resource === 'hit' && !rest) {
+      const body = await readBody(req)
+      const query = String(body.query ?? '').trim()
+      if (!query) return validationError(res, 'Query cannot be empty')
+      if (query.length > 200) return validationError(res, 'Query length cannot exceed 200')
+      queries.unshift({
+        id: randomUUID(),
+        dataset_id: owner.id,
+        query,
+        source: 'HitTesting',
+        created_at: nowSeconds(),
+      })
+      datasetQueries.set(owner.id, queries.slice(0, 10))
+      const k = Math.min(Math.max(Number(body.k) || 4, 1), 10)
+      const hits = documents.filter((d) => d.enabled).slice(0, k)
+      return ok(
+        res,
+        hits.map((document, index) => ({
+          id: `${document.id}-segment-1`,
+          document: {
+            id: document.id,
+            name: document.name,
+            extension: 'md',
+            mime_type: 'text/markdown',
+          },
+          dataset_id: owner.id,
+          score: Math.max(0.99 - index * 0.07, 0),
+          position: 1,
+          content: `A mock segment from ${document.name} that matched "${query}".`,
+          keywords: query.split(/\s+/).slice(0, 3),
+          character_count: 60,
+          token_count: 15,
+          hit_count: document.hit_count,
+          enabled: true,
+          disabled_at: 0,
+          status: 'completed',
+          error: '',
+          updated_at: document.updated_at,
+          created_at: document.created_at,
+        })),
+      )
+    }
+
+    if (req.method === 'GET' && resource === 'documents' && !rest) {
+      const search = (url.searchParams.get('search_word') ?? '').toLowerCase()
+      const page = Number(url.searchParams.get('current_page')) || 1
+      const size = Number(url.searchParams.get('page_size')) || 20
+      const matches = documents.filter((d) => d.name.toLowerCase().includes(search))
+      return ok(res, {
+        list: matches.slice((page - 1) * size, page * size),
+        paginator: {
+          total_page: Math.ceil(matches.length / size),
+          total_record: matches.length,
+          current_page: page,
+          page_size: size,
+        },
+      })
+    }
+
+    const documentPath = rest.match(/^\/([^/]+?)(\/name|\/enabled|\/delete)?$/)
+    if (resource === 'documents' && documentPath) {
+      const index = documents.findIndex((d) => d.id === decodeURIComponent(documentPath[1]))
+      if (index === -1) {
+        return sendJson(res, 404, { code: 'not_found', message: 'Document not found.', data: {} })
+      }
+      const document = documents[index]
+      const action = documentPath[2] ?? ''
+      if (req.method === 'GET' && !action) {
+        return ok(res, { ...document, dataset_id: owner.id, segment_count: 1 })
+      }
+      if (req.method === 'POST' && action === '/name') {
+        const name = String((await readBody(req)).name ?? '').trim()
+        if (!name) return validationError(res, 'Document name cannot be empty')
+        if (name.length > 100)
+          return validationError(res, 'Document name cannot exceed 100 characters')
+        Object.assign(document, { name, updated_at: nowSeconds() })
+        return sendJson(res, 200, {
+          code: 'success',
+          message: 'Document name updated successfully.',
+          data: {},
+        })
+      }
+      if (req.method === 'POST' && action === '/enabled') {
+        const { enabled } = await readBody(req)
+        if (typeof enabled !== 'boolean') {
+          return validationError(res, 'enabled cannot be empty and must be a boolean')
+        }
+        Object.assign(document, {
+          enabled,
+          disabled_at: enabled ? 0 : nowSeconds(),
+          updated_at: nowSeconds(),
+        })
+        return sendJson(res, 200, {
+          code: 'success',
+          message: 'Document enabled status updated successfully.',
+          data: {},
+        })
+      }
+      if (req.method === 'POST' && action === '/delete') {
+        documents.splice(index, 1)
+        owner.document_count = documents.length
+        return sendJson(res, 200, {
+          code: 'success',
+          message: 'Document deleted successfully.',
+          data: {},
+        })
+      }
+    }
+  }
+
   const dataset = url.pathname.match(/^\/datasets\/([^/]+?)(\/delete)?$/)
   if (dataset) {
     const index = datasets.findIndex((d) => d.id === decodeURIComponent(dataset[1]))

@@ -101,6 +101,8 @@ export const useDeleteDataset = () => {
       content:
         'After the knowledge base is deleted, apps linked to it can no longer use it, and all prompt configurations and documents will be permanently deleted',
       hideCancel: false,
+      okText: 'OK',
+      cancelText: 'Cancel',
       onOk: async () => {
         try {
           // 1. After OK is clicked, send the request to the API
@@ -264,6 +266,8 @@ export const useDeleteDocument = () => {
       content:
         'After the document is deleted, the knowledge base/vector database can no longer retrieve it. To temporarily stop retrieving this document, you can disable it instead',
       hideCancel: false,
+      okText: 'OK',
+      cancelText: 'Cancel',
       onOk: async () => {
         try {
           // 1. After OK is clicked, send the request to the API
